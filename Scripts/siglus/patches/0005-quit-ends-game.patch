@@ -1,0 +1,14 @@
+diff --git a/crates/siglus_scene_vm/src/host.rs b/crates/siglus_scene_vm/src/host.rs
+index 7eb3da1..3af6f9b 100644
+--- a/crates/siglus_scene_vm/src/host.rs
++++ b/crates/siglus_scene_vm/src/host.rs
+@@ -1556,6 +1556,9 @@ impl SiglusHost {
+                     self.flow.pop();
+                     crate::runtime::forms::syscom::write_global_save(&self.vm.ctx);
+                     self.vm.ctx.globals.system.active_flag = false;
++                    // Shiori: as the desktop host does, so step() reports the exit; the game
++                    // otherwise faded to black and kept running after its own Quit.
++                    self.pending_exit = true;
+                     continue;
+                 }
+                 ProcType::GameTimerStart => {

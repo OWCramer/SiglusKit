@@ -1,0 +1,110 @@
+diff --git a/crates/siglus_scene_vm/src/runtime/ui.rs b/crates/siglus_scene_vm/src/runtime/ui.rs
+index 5fca0f3..875cc59 100644
+--- a/crates/siglus_scene_vm/src/runtime/ui.rs
++++ b/crates/siglus_scene_vm/src/runtime/ui.rs
+@@ -343,6 +343,21 @@ pub struct MsgBackButtonRuntime {
+ pub struct MsgBackTextRuntime {
+     pub sprite: Option<SpriteId>,
+     pub image: Option<ImageHandle>,
++    /// Shiori: what `image` was rendered from, so a backlog entry is rasterized once and
++    /// scrolling only moves its sprite.
++    pub rendered: Option<MsgBackTextKey>,
++}
++
++/// Shiori: the inputs of a rendered backlog entry.
++#[derive(Debug, Clone, PartialEq)]
++pub struct MsgBackTextKey {
++    pub history_index: usize,
++    pub text: String,
++    pub moji_size: i64,
++    pub moji_space: Option<(i64, i64)>,
++    pub width: u32,
++    pub height: u32,
++    pub style: TextStyle,
+ }
+ 
+ #[derive(Debug, Default)]
+@@ -3772,6 +3787,10 @@ impl UiRuntime {
+     }
+ 
+     fn hide_msg_back_sprites(&mut self, layers: &mut crate::layer::LayerManager) {
++        // Shiori: render afresh next time it opens (the font or its settings may change).
++        for entry in &mut self.msg_back.text_entries {
++            entry.rendered = None;
++        }
+         let Some(ui_layer) = self.mwnd.layer else {
+             return;
+         };
+@@ -4181,19 +4200,39 @@ impl UiRuntime {
+         }
+         for i in 0..projection.text_entries.len() {
+             let entry = &projection.text_entries[i];
++            let key = MsgBackTextKey {
++                history_index: entry.history_index,
++                text: entry.text.clone(),
++                moji_size: projection.moji_size,
++                moji_space: projection.moji_space,
++                width: entry.width,
++                height: entry.height,
++                style: entry.style,
++            };
++            // Shiori: entries move between slots as the backlog scrolls; take the slot that
++            // already holds this entry's image instead of rendering it again.
++            if self.msg_back.text_entries[i].rendered.as_ref() != Some(&key)
++                && let Some(j) = (i + 1..self.msg_back.text_entries.len())
++                    .find(|&j| self.msg_back.text_entries[j].rendered.as_ref() == Some(&key))
++            {
++                self.msg_back.text_entries.swap(i, j);
++            }
+             let runtime = &mut self.msg_back.text_entries[i];
+             let sprite_id = Self::ensure_text_sprite(layers, ui_layer, &mut runtime.sprite);
+-            let render_text = entry.text.replace('\u{0007}', "\n");
+-            runtime.image = self.font_cache.render_mwnd_text_styled_into(
+-                images,
+-                runtime.image.clone(),
+-                &render_text,
+-                projection.moji_size.max(1) as f32,
+-                entry.width.max(1),
+-                entry.height.max(1),
+-                projection.moji_space,
+-                entry.style,
+-            );
++            if runtime.rendered.as_ref() != Some(&key) || runtime.image.is_none() {
++                let render_text = entry.text.replace('\u{0007}', "\n");
++                runtime.image = self.font_cache.render_mwnd_text_styled_into(
++                    images,
++                    runtime.image.clone(),
++                    &render_text,
++                    projection.moji_size.max(1) as f32,
++                    entry.width.max(1),
++                    entry.height.max(1),
++                    projection.moji_space,
++                    entry.style,
++                );
++                runtime.rendered = runtime.image.is_some().then_some(key);
++            }
+             if let Some(s) = layers
+                 .layer_mut(ui_layer)
+                 .and_then(|l| l.sprite_mut(sprite_id))
+@@ -4211,7 +4250,7 @@ impl UiRuntime {
+                 }
+                 s.x = projection.window_x + entry.x;
+                 s.y = projection.window_y + entry.y;
+-                s.order = msg_back_packed_sorter_key(projection.order, 0);
++                s.order = msg_back_packed_sorter_key(projection.order, projection.moji_layer_rep);
+                 s.alpha = 255;
+                 s.tr = 255;
+                 s.alpha_test = false;
+diff --git a/crates/siglus_scene_vm/src/text_render.rs b/crates/siglus_scene_vm/src/text_render.rs
+index 9e7be41..5b65086 100644
+--- a/crates/siglus_scene_vm/src/text_render.rs
++++ b/crates/siglus_scene_vm/src/text_render.rs
+@@ -76,7 +76,7 @@ pub fn font_shadow_mode_flags(mode: i64) -> (bool, bool) {
+     }
+ }
+ 
+-#[derive(Debug, Clone, Copy)]
++#[derive(Debug, Clone, Copy, PartialEq)]
+ pub struct TextStyle {
+     pub color: (u8, u8, u8),
+     pub shadow_color: (u8, u8, u8),

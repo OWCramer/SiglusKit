@@ -1,0 +1,16 @@
+diff --git a/crates/siglus_scene_vm/src/runtime/mod.rs b/crates/siglus_scene_vm/src/runtime/mod.rs
+index bf70709..b871731 100644
+--- a/crates/siglus_scene_vm/src/runtime/mod.rs
++++ b/crates/siglus_scene_vm/src/runtime/mod.rs
+@@ -3881,7 +3881,10 @@ impl CommandContext {
+         if self.excall_state.ex_call_flag {
+             return false;
+         }
+-        if self.movie.current().is_some() {
++        // Shiori: only a full-screen movie that is playing holds the menu off. The movie
++        // player's "current" also names a stage object's .omv (an animated background) and
++        // stays set after it, which kept right-click from ever opening the menu again.
++        if self.globals.mov.playing {
+             return false;
+         }
+         self.globals.syscom.read_skip.onoff = false;

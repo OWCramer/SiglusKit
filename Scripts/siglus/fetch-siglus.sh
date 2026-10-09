@@ -24,6 +24,9 @@ git -C "$DEST" checkout -q "$SIGLUS_COMMIT"
 # 0002: the iOS host keeps the game's mouse-cursor sprite hidden (there's no pointer to show).
 # 0003: a click brings a hidden message window back (only keys did), so closing it with the
 #       window's own button doesn't strand a touch screen.
+# 0004: right-click opens the system menu after a stage object's .omv (an animated background)
+#       has played; only a full-screen movie that is playing holds it off.
+# 0005: the game's own Quit ends the engine on iOS (the mobile host never reported the exit).
 for patch in Scripts/siglus/patches/[0-9]*.patch; do
   git -C "$DEST" apply "$PWD/$patch"
 done
