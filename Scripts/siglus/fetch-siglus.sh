@@ -22,6 +22,8 @@ git -C "$DEST" checkout -q "$SIGLUS_COMMIT"
 # 0001: iOS host exports for a mouse button (a two-finger tap is a right-click), the wheel
 #       and keys, beside siglus_ios_touch's left button.
 # 0002: the iOS host keeps the game's mouse-cursor sprite hidden (there's no pointer to show).
+# 0003: a click brings a hidden message window back (only keys did), so closing it with the
+#       window's own button doesn't strand a touch screen.
 for patch in Scripts/siglus/patches/[0-9]*.patch; do
   git -C "$DEST" apply "$PWD/$patch"
 done

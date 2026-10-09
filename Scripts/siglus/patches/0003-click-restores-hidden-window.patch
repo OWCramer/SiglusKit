@@ -1,0 +1,18 @@
+diff --git a/crates/siglus_scene_vm/src/runtime/mod.rs b/crates/siglus_scene_vm/src/runtime/mod.rs
+index 436cca9..bf70709 100644
+--- a/crates/siglus_scene_vm/src/runtime/mod.rs
++++ b/crates/siglus_scene_vm/src/runtime/mod.rs
+@@ -4082,6 +4082,13 @@ impl CommandContext {
+         if movie_skipped {
+             return;
+         }
++        // Shiori: a click brings a hidden message window back, as in the original engine
++        // (on_key_up does this for Enter/Escape/Space). Without it, closing the window with
++        // its own button left a touch screen with no way back.
++        if (left_down_up || right_down_up) && self.globals.syscom.hide_mwnd.onoff {
++            self.globals.syscom.hide_mwnd.onoff = false;
++            return;
++        }
+         if right_down_up {
+             if std::mem::take(&mut self.suppress_next_right_syscom_open) {
+                 return;
