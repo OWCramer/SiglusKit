@@ -1,0 +1,28 @@
+diff --git a/crates/siglus_scene_vm/src/host.rs b/crates/siglus_scene_vm/src/host.rs
+index e4c8e09..7eb3da1 100644
+--- a/crates/siglus_scene_vm/src/host.rs
++++ b/crates/siglus_scene_vm/src/host.rs
+@@ -443,6 +443,11 @@ impl SiglusHost {
+         self.script_needs_pump = true;
+     }
+ 
++    /// Shiori: touch screens have no pointer to show; keep the game's cursor sprite hidden.
++    pub fn hide_mouse_cursor(&mut self) {
++        self.vm.ctx.globals.script.cursor_runtime_visible = false;
++    }
++
+     pub fn touch(&mut self, phase: i32, x: f64, y: f64) {
+         self.mouse_move(x, y);
+         match phase {
+diff --git a/crates/siglus_scene_vm/src/ios_host.rs b/crates/siglus_scene_vm/src/ios_host.rs
+index c140773..110b8ae 100644
+--- a/crates/siglus_scene_vm/src/ios_host.rs
++++ b/crates/siglus_scene_vm/src/ios_host.rs
+@@ -177,6 +177,7 @@ pub unsafe extern "C" fn siglus_ios_step(handle: *mut c_void, dt_ms: u32) -> i32
+         return 2;
+     }
+     let host = unsafe { &mut *(handle as *mut SiglusHost) };
++    host.hide_mouse_cursor();
+     match host.step(default_frame_interval_ms(dt_ms)) {
+         Ok(false) => 0,
+         Ok(true) => {

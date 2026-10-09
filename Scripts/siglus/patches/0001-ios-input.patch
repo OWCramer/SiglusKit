@@ -1,0 +1,67 @@
+diff --git a/crates/siglus_scene_vm/src/ios_host.rs b/crates/siglus_scene_vm/src/ios_host.rs
+index 0965a6b..c140773 100644
+--- a/crates/siglus_scene_vm/src/ios_host.rs
++++ b/crates/siglus_scene_vm/src/ios_host.rs
+@@ -302,6 +302,47 @@ pub unsafe extern "C" fn siglus_ios_touch(
+     host.touch(phase, x_points, y_points);
+ }
+ 
++/// Shiori: a mouse button at the current pointer position (0 left, 1 right, 2 middle), for
++/// gestures such as a two-finger tap standing in for a right-click.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_ios_mouse_button(handle: *mut c_void, button: i32, down: i32) {
++    let Some(host) = (unsafe { (handle as *mut SiglusHost).as_mut() }) else {
++        return;
++    };
++    let button = match button {
++        1 => crate::runtime::input::VmMouseButton::Right,
++        2 => crate::runtime::input::VmMouseButton::Middle,
++        _ => crate::runtime::input::VmMouseButton::Left,
++    };
++    if down != 0 {
++        host.mouse_down(button);
++    } else {
++        host.mouse_up(button);
++    }
++}
++
++/// Shiori: wheel steps (positive is up, as on a PC wheel: backlog in most games).
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_ios_mouse_wheel(handle: *mut c_void, delta_y: i32) {
++    if let Some(host) = unsafe { (handle as *mut SiglusHost).as_mut() } {
++        host.mouse_wheel(delta_y);
++    }
++}
++
++/// Shiori: a key by Windows virtual-key code (0x0D Enter, 0x1B Escape, 0x11 Control, ...),
++/// for controllers and gestures.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_ios_key(handle: *mut c_void, code: i32, down: i32) {
++    let Some(host) = (unsafe { (handle as *mut SiglusHost).as_mut() }) else {
++        return;
++    };
++    if down != 0 {
++        host.key_down_code(code);
++    } else {
++        host.key_up_code(code);
++    }
++}
++
+ #[unsafe(no_mangle)]
+ pub unsafe extern "C" fn siglus_ios_text_input(handle: *mut c_void, text_utf8: *const c_char) {
+     let Some(host) = (unsafe { (handle as *mut SiglusHost).as_mut() }) else {
+diff --git a/platform/ios/SiglusLauncher/Headers/siglus.h b/platform/ios/SiglusLauncher/Headers/siglus.h
+index 81b223e..1b31bfc 100644
+--- a/platform/ios/SiglusLauncher/Headers/siglus.h
++++ b/platform/ios/SiglusLauncher/Headers/siglus.h
+@@ -47,6 +47,10 @@ int32_t siglus_ios_step(void *handle, uint32_t dt_ms);
+ void siglus_ios_resize(void *handle, uint32_t surface_width, uint32_t surface_height);
+ void siglus_ios_touch(void *handle, int32_t phase, double x_points, double y_points);
+ void siglus_ios_text_input(void *handle, const char *text_utf8);
++/* Shiori: button 0 left, 1 right, 2 middle; wheel steps (up positive); Windows VK codes. */
++void siglus_ios_mouse_button(void *handle, int32_t button, int32_t down);
++void siglus_ios_mouse_wheel(void *handle, int32_t delta_y);
++void siglus_ios_key(void *handle, int32_t code, int32_t down);
+ void siglus_ios_ime_preedit(void *handle, const char *text_utf8, int32_t cursor_start, int32_t cursor_end);
+ void siglus_ios_destroy(void *handle);
+ #endif
