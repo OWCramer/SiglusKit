@@ -1,0 +1,86 @@
+diff --git a/crates/siglus_scene_vm/src/vm.rs b/crates/siglus_scene_vm/src/vm.rs
+index e8396f2..b1db1b6 100644
+--- a/crates/siglus_scene_vm/src/vm.rs
++++ b/crates/siglus_scene_vm/src/vm.rs
+@@ -1185,7 +1185,9 @@ impl<'a> SceneVm<'a> {
+             return false;
+         }
+         if let Some(filter) = config.scene.as_deref()
+-            && self.current_scene_name.as_deref() != Some(filter)
++            && !filter
++                .split(',')
++                .any(|scene| self.current_scene_name.as_deref() == Some(scene))
+         {
+             return false;
+         }
+@@ -1204,8 +1206,9 @@ impl<'a> SceneVm<'a> {
+         let int_tail = &self.int_stack[int_tail_start..];
+         let _ = write!(
+             &mut out,
+-            "call_depth={} int_len={} str_len={} elm_points={:?} int_tail={:?}",
++            "call_depth={} scene_depths={:?} int_len={} str_len={} elm_points={:?} int_tail={:?}",
+             self.call_stack.len(),
++            self.scene_stack.iter().map(|s| s.call_depth).collect::<Vec<_>>(),
+             self.int_stack.len(),
+             self.str_stack.len(),
+             self.element_points,
+@@ -4493,11 +4496,12 @@ impl<'a> SceneVm<'a> {
+                         self.vm_trace_emit(
+                             Some(pc_before),
+                             format_args!(
+-                                "RETURN decoded argc={} args={:?} call_depth={} scene_stack={} frame=ret_form={} arg_cnt={} props={:?} L0_8={:?} K0_4={:?}",
++                                "RETURN decoded argc={} args={:?} call_depth={} scene_stack={} depths={:?} frame=ret_form={} arg_cnt={} props={:?} L0_8={:?} K0_4={:?}",
+                                 args.len(),
+                                 args,
+                                 self.call_stack.len(),
+                                 self.scene_stack.len(),
++                                self.scene_stack.iter().map(|s| s.call_depth).collect::<Vec<_>>(),
+                                 frame.ret_form,
+                                 frame.arg_cnt,
+                                 frame.user_props,
+@@ -12762,6 +12766,17 @@ impl<'a> SceneVm<'a> {
+         let (return_pc, ret_form) = callee
+             .return_override
+             .unwrap_or((caller.return_pc, caller.ret_form));
++        // Shiori: the caller's script position includes its scene (C_elm_call::m_call_save).
++        // A scene jump inside a gosub or user command leaves that scene; returning resumes
++        // the caller there. Harmonia's cancel menu jumps to its save screen from inside a
++        // command, and the save screen's RETURN went on in the save scene at the menu's pc.
++        let caller_scene = caller
++            .return_scene_no
++            .filter(|&no| Some(no) != self.current_scene_no)
++            .map(|no| (no, caller.return_scene_name.clone(), caller.return_line_no));
++        if let Some((scene_no, scene_name, line_no)) = caller_scene {
++            self.resume_caller_scene(scene_no, scene_name, line_no)?;
++        }
+         if self.runtime_options.trace_call_return_pc {
+             eprintln!(
+                 "[SG_CALL_PC] return depth={} pc=0x{:x} ret_form={} override={:?} args={:?}",
+@@ -12801,6 +12816,27 @@ impl<'a> SceneVm<'a> {
+         Ok(frame_action_proc)
+     }
+ 
++    /// Shiori: make `scene_no` the running scene again, for a return into it.
++    fn resume_caller_scene(
++        &mut self,
++        scene_no: usize,
++        scene_name: Option<String>,
++        line_no: i32,
++    ) -> Result<()> {
++        let stream = self.cached_scene_stream(scene_no)?;
++        self.user_cmd_names = stream.scn_cmd_name_map.clone();
++        self.stash_current_scene_user_props();
++        self.stream = stream;
++        self.current_scene_no = Some(scene_no);
++        self.activate_scene_user_prop_scope(scene_no);
++        self.current_scene_name = scene_name;
++        self.current_line_no = line_no;
++        self.ctx.current_scene_no = Some(scene_no as i64);
++        self.ctx.current_scene_name = self.current_scene_name.clone();
++        self.ctx.current_line_no = line_no as i64;
++        Ok(())
++    }
++
+     fn scene_base_call(&self) -> CallFrame {
+         self.make_call_frame(self.cfg.fm_void, false, false, 0, None)
+     }
