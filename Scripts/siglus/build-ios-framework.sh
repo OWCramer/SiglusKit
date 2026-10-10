@@ -53,4 +53,5 @@ cp "$SRC/platform/ios/SiglusLauncher/Headers/siglus.h" "$ROOT/Packages/SiglusKit
 echo "==> $OUT"
 # shellcheck disable=SC2086
 xcodebuild -create-xcframework $args -output "$OUT"
+"$(dirname "$0")/../add-privacy-manifests.sh"
 echo "==> Vendor/$NAME.xcframework ready"
