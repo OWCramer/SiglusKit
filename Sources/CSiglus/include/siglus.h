@@ -51,6 +51,10 @@ void siglus_ios_text_input(void *handle, const char *text_utf8);
 void siglus_ios_mouse_button(void *handle, int32_t button, int32_t down);
 void siglus_ios_mouse_wheel(void *handle, int32_t delta_y);
 void siglus_ios_key(void *handle, int32_t code, int32_t down);
+/* Shiori: a trackpad or mouse (on) or fingers drive the game; with a pointer the game's own
+   cursor sprite is drawn. has_custom_cursor is 1 while the game draws one. */
+void siglus_ios_set_pointer_mode(void *handle, int32_t on);
+int32_t siglus_ios_has_custom_cursor(void *handle);
 void siglus_ios_ime_preedit(void *handle, const char *text_utf8, int32_t cursor_start, int32_t cursor_end);
 void siglus_ios_destroy(void *handle);
 #endif

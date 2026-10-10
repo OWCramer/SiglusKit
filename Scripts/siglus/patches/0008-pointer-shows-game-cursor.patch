@@ -1,0 +1,86 @@
+--- a/crates/siglus_scene_vm/src/host.rs
++++ b/crates/siglus_scene_vm/src/host.rs
+@@ -207,6 +207,8 @@
+     paused: bool,
+     pending_exit: bool,
+     last_step: Option<Instant>,
++    /// Shiori: a trackpad or mouse is in use (iPad), so the game's cursor sprite shows.
++    pointer_mode: bool,
+ }
+ 
+ fn find_scene_pck_for_host(project_dir: &Path) -> Result<PathBuf> {
+@@ -286,6 +288,7 @@
+             paused: false,
+             pending_exit: false,
+             last_step: None,
++            pointer_mode: false,
+         })
+     }
+ 
+@@ -443,11 +446,24 @@
+         self.script_needs_pump = true;
+     }
+ 
+-    /// Shiori: touch screens have no pointer to show; keep the game's cursor sprite hidden.
++    /// Shiori: touch screens have no pointer to show; keep the game's cursor sprite hidden,
++    /// unless a trackpad or mouse is in use, when it shows as on a PC.
+     pub fn hide_mouse_cursor(&mut self) {
+-        self.vm.ctx.globals.script.cursor_runtime_visible = false;
++        self.vm.ctx.globals.script.cursor_runtime_visible = self.pointer_mode;
++    }
++
++    /// Shiori: a trackpad or mouse (on) or fingers (off) drive the game.
++    pub fn set_pointer_mode(&mut self, on: bool) {
++        self.pointer_mode = on;
++        self.vm.ctx.globals.script.cursor_runtime_visible = on;
+     }
+ 
++    /// Shiori: whether the game draws its own cursor now (Gameexe #MOUSE_CURSOR), so the
++    /// host can hide the system pointer.
++    pub fn has_custom_cursor(&mut self) -> bool {
++        self.vm.ctx.has_active_custom_mouse_cursor() && !self.vm.ctx.globals.script.cursor_disp_off
++    }
++
+     pub fn touch(&mut self, phase: i32, x: f64, y: f64) {
+         self.mouse_move(x, y);
+         match phase {
+--- a/crates/siglus_scene_vm/src/ios_host.rs
++++ b/crates/siglus_scene_vm/src/ios_host.rs
+@@ -327,6 +327,24 @@
+ pub unsafe extern "C" fn siglus_ios_mouse_wheel(handle: *mut c_void, delta_y: i32) {
+     if let Some(host) = unsafe { (handle as *mut SiglusHost).as_mut() } {
+         host.mouse_wheel(delta_y);
++    }
++}
++
++/// Shiori: a trackpad or mouse (on != 0) or fingers drive the game; with a pointer, the
++/// game's own cursor sprite is drawn.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_ios_set_pointer_mode(handle: *mut c_void, on: i32) {
++    if let Some(host) = unsafe { (handle as *mut SiglusHost).as_mut() } {
++        host.set_pointer_mode(on != 0);
++    }
++}
++
++/// Shiori: 1 when the game draws its own cursor now, so the host hides the iPad pointer.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_ios_has_custom_cursor(handle: *mut c_void) -> i32 {
++    match unsafe { (handle as *mut SiglusHost).as_mut() } {
++        Some(host) => host.has_custom_cursor() as i32,
++        None => 0,
+     }
+ }
+ 
+--- a/platform/ios/SiglusLauncher/Headers/siglus.h
++++ b/platform/ios/SiglusLauncher/Headers/siglus.h
+@@ -51,6 +51,10 @@
+ void siglus_ios_mouse_button(void *handle, int32_t button, int32_t down);
+ void siglus_ios_mouse_wheel(void *handle, int32_t delta_y);
+ void siglus_ios_key(void *handle, int32_t code, int32_t down);
++/* Shiori: a trackpad or mouse (on) or fingers drive the game; with a pointer the game's own
++   cursor sprite is drawn. has_custom_cursor is 1 while the game draws one. */
++void siglus_ios_set_pointer_mode(void *handle, int32_t on);
++int32_t siglus_ios_has_custom_cursor(void *handle);
+ void siglus_ios_ime_preedit(void *handle, const char *text_utf8, int32_t cursor_start, int32_t cursor_end);
+ void siglus_ios_destroy(void *handle);
+ #endif
