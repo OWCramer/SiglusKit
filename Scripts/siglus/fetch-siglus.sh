@@ -27,9 +27,13 @@ git -C "$DEST" checkout -q "$SIGLUS_COMMIT"
 # 0004: right-click opens the system menu after a stage object's .omv (an animated background)
 #       has played; only a full-screen movie that is playing holds it off.
 # 0005: the game's own Quit ends the engine on iOS (the mobile host never reported the exit).
+# 0009: no font is compiled in. Upstream embeds Microsoft's MS PGothic as its fallback, which
+#       may not be redistributed; Shiori links BIZ UDGothic (OFL) into each game's font/.
 for patch in Scripts/siglus/patches/[0-9]*.patch; do
   git -C "$DEST" apply "$PWD/$patch"
 done
+# The MS PGothic file itself goes too, so nothing can build it back in (0009).
+rm -f "$DEST/crates/siglus_scene_vm/assets/fonts/default.ttf"
 
 echo "$VERSION" > "$STAMP"
 echo "siglus_rs ready in $DEST"

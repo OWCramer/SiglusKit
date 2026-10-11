@@ -1,0 +1,29 @@
+--- a/crates/siglus_scene_vm/src/text_render.rs
++++ b/crates/siglus_scene_vm/src/text_render.rs
+@@ -14,8 +14,13 @@
+ 
+ static MISSING_CONFIGURED_FONTS_LOGGED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+ 
+-// Share one embedded font allocation between game text and desktop dialogs.
+-pub(crate) static DEFAULT_FONT_BYTES: &[u8] = include_bytes!("../assets/fonts/default.ttf");
++// Shiori: no font is compiled in. The one upstream embedded (assets/fonts/default.ttf) is
++// Microsoft's MS PGothic, which may not be redistributed; Shiori's fetch script deletes it.
++// The host supplies a font in the game's font/ folder instead (Shiori links BIZ UDGothic,
++// OFL, there), which the lookup below falls back to for MS Gothic and MS PGothic alike.
++// The desktop dialogs that shared these bytes are not built for iOS.
++#[allow(dead_code)]
++pub(crate) static DEFAULT_FONT_BYTES: &[u8] = &[];
+ 
+ fn log_missing_configured_font_once(requested_name: &str, fallback: Option<&Path>) {
+     let key = normalize_font_name_for_match(requested_name.trim_start_matches('@'));
+@@ -46,8 +51,8 @@
+ }
+ 
+ mod embedded_font {
+-    pub const EMBEDDED_DEFAULT_FONT: Option<&'static [u8]> = Some(super::DEFAULT_FONT_BYTES);
+-    pub const EMBEDDED_DEFAULT_FONT_SOURCE: Option<&'static str> = Some("assets/fonts/default.ttf");
++    pub const EMBEDDED_DEFAULT_FONT: Option<&'static [u8]> = None;
++    pub const EMBEDDED_DEFAULT_FONT_SOURCE: Option<&'static str> = None;
+     pub const EMBEDDED_DEFAULT_FONT_ALIASES: &[&str] = &[
+         "ＭＳ Ｐゴシック",
+         "MS PGothic",
