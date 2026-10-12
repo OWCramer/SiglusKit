@@ -29,11 +29,16 @@ git -C "$DEST" checkout -q "$SIGLUS_COMMIT"
 # 0005: the game's own Quit ends the engine on iOS (the mobile host never reported the exit).
 # 0009: no font is compiled in. Upstream embeds Microsoft's MS PGothic as its fallback, which
 #       may not be redistributed; Shiori links BIZ UDGothic (OFL) into each game's font/.
+# 0010: no RealLive. game_launcher drops its reallive dependency (and RealLive games report
+#       unsupported); Shiori's Siglus games never use it, and the crate carries translated
+#       decompilations of VisualArt's DT00.DLL and PT00.DLL, which can't ship.
 for patch in Scripts/siglus/patches/[0-9]*.patch; do
   git -C "$DEST" apply "$PWD/$patch"
 done
 # The MS PGothic file itself goes too, so nothing can build it back in (0009).
 rm -f "$DEST/crates/siglus_scene_vm/assets/fonts/default.ttf"
+# The reallive crate goes too (0010), dt00/pt00 and all, so nothing can link it back in.
+rm -rf "$DEST/crates/reallive"
 
 echo "$VERSION" > "$STAMP"
 echo "siglus_rs ready in $DEST"
