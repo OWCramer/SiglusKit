@@ -32,6 +32,9 @@ git -C "$DEST" checkout -q "$SIGLUS_COMMIT"
 # 0010: no RealLive. game_launcher drops its reallive dependency (and RealLive games report
 #       unsupported); Shiori's Siglus games never use it, and the crate carries translated
 #       decompilations of VisualArt's DT00.DLL and PT00.DLL, which can't ship.
+# 0011: siglus_ios_save_place: the host saves the game's place (the save point the game's own
+#       SAVE writes) into a normal slot as the app leaves the screen or the player leaves;
+#       save files are written beside the slot and renamed over it.
 for patch in Scripts/siglus/patches/[0-9]*.patch; do
   git -C "$DEST" apply "$PWD/$patch"
 done

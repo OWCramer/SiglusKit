@@ -55,6 +55,11 @@ void siglus_ios_key(void *handle, int32_t code, int32_t down);
    cursor sprite is drawn. has_custom_cursor is 1 while the game draws one. */
 void siglus_ios_set_pointer_mode(void *handle, int32_t on);
 int32_t siglus_ios_has_custom_cursor(void *handle);
+/* Shiori: saves the game's place in its own format (the save point where the message on
+   screen began) into normal slot index, or the first empty slot when index is
+   negative. Returns the slot, -1 when the game can't save now, -2 when no slot is free, -3
+   on failure; dry_run nonzero only answers which. Call between steps. */
+int32_t siglus_ios_save_place(void *handle, int32_t index, int32_t dry_run);
 void siglus_ios_ime_preedit(void *handle, const char *text_utf8, int32_t cursor_start, int32_t cursor_end);
 void siglus_ios_destroy(void *handle);
 #endif

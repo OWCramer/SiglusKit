@@ -1,0 +1,182 @@
+diff --git a/crates/siglus_scene_vm/src/ios_host.rs b/crates/siglus_scene_vm/src/ios_host.rs
+index 03fd9aa..c772a26 100644
+--- a/crates/siglus_scene_vm/src/ios_host.rs
++++ b/crates/siglus_scene_vm/src/ios_host.rs
+@@ -348,6 +348,19 @@ pub unsafe extern "C" fn siglus_ios_has_custom_cursor(handle: *mut c_void) -> i3
+     }
+ }
+ 
++/// Shiori: saves the game's place, in its own format, as the app leaves the screen or the
++/// player leaves the game (`SceneVm::shiori_host_save`): into normal slot `index`, or the
++/// first empty slot when `index` is negative. Call between steps. Returns the
++/// slot written, -1 when the game can't save now, -2 when no slot is free, -3 on failure;
++/// with `dry_run` nonzero it only answers which.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_ios_save_place(handle: *mut c_void, index: i32, dry_run: i32) -> i32 {
++    let Some(host) = (unsafe { (handle as *mut SiglusHost).as_mut() }) else {
++        return -1;
++    };
++    host.vm_mut().shiori_host_save(index as i64, dry_run != 0) as i32
++}
++
+ /// Shiori: a key by Windows virtual-key code (0x0D Enter, 0x1B Escape, 0x11 Control, ...),
+ /// for controllers and gestures.
+ #[unsafe(no_mangle)]
+diff --git a/crates/siglus_scene_vm/src/original_save.rs b/crates/siglus_scene_vm/src/original_save.rs
+index 261b0cd..3517e8e 100644
+--- a/crates/siglus_scene_vm/src/original_save.rs
++++ b/crates/siglus_scene_vm/src/original_save.rs
+@@ -1130,7 +1130,15 @@ pub fn write_local_save_file(
+         fs::create_dir_all(parent)
+             .with_context(|| format!("create save dir {}", parent.display()))?;
+     }
+-    fs::write(path, out).with_context(|| format!("write save file {}", path.display()))?;
++    // Shiori: written beside the slot and renamed over it, so a save cut short (the app
++    // suspended or killed while writing) never leaves a broken slot behind.
++    let name = path
++        .file_name()
++        .map(|n| n.to_string_lossy().into_owned())
++        .unwrap_or_default();
++    let temp = path.with_file_name(format!(".{name}.writing"));
++    fs::write(&temp, out).with_context(|| format!("write save file {}", temp.display()))?;
++    fs::rename(&temp, path).with_context(|| format!("replace save file {}", path.display()))?;
+     crate::resource::invalidate_game_path_cache(path);
+     Ok(())
+ }
+diff --git a/crates/siglus_scene_vm/src/runtime/mod.rs b/crates/siglus_scene_vm/src/runtime/mod.rs
+index b871731..03986fb 100644
+--- a/crates/siglus_scene_vm/src/runtime/mod.rs
++++ b/crates/siglus_scene_vm/src/runtime/mod.rs
+@@ -763,6 +763,16 @@ impl CommandContext {
+         std::mem::take(&mut self.pending_auto_savepoint)
+     }
+ 
++    /// Shiori: whether a message block has asked for a save point not yet taken.
++    pub fn has_pending_auto_savepoint(&self) -> bool {
++        self.pending_auto_savepoint
++    }
++
++    /// Shiori: whether a save or load the script asked for is still to be carried out.
++    pub fn has_pending_runtime_save_or_load(&self) -> bool {
++        self.pending_runtime_save.is_some() || self.pending_runtime_load.is_some()
++    }
++
+     pub fn request_sel_point_with_result(&mut self, result: i64) {
+         self.pending_sel_point_result = Some(result.clamp(i32::MIN as i64, i32::MAX as i64) as i32);
+     }
+diff --git a/crates/siglus_scene_vm/src/vm.rs b/crates/siglus_scene_vm/src/vm.rs
+index b1db1b6..0e244ae 100644
+--- a/crates/siglus_scene_vm/src/vm.rs
++++ b/crates/siglus_scene_vm/src/vm.rs
+@@ -12400,6 +12400,95 @@ impl<'a> SceneVm<'a> {
+         self.runtime_options.save_load_trace
+     }
+ 
++    /// Shiori: a save the host asks for as the app leaves the screen or the player leaves
++    /// the game. It writes what the game's own SAVE writes (the save point taken where the
++    /// message on screen began, never the live state), into normal slot `index`, or the
++    /// first empty slot when `index` is negative, so the game's Load screen and
++    /// its Continue (the newest save) find it. Only between steps, and only when the game
++    /// could save itself: it has a save point (none on the title or in a scene that
++    /// cleared it), its script hasn't switched saving off, and no load, save or system
++    /// command (return to title, a confirmation) is pending. With `dry_run`, nothing is
++    /// written. Returns the slot, -1 when the game can't save now, -2 when no slot is
++    /// free, -3 when writing failed.
++    pub fn shiori_host_save(&mut self, index: i64, dry_run: bool) -> i64 {
++        let available = self
++            .ctx
++            .local_save_snapshot
++            .as_ref()
++            .is_some_and(|s| !s.local_stream.is_empty())
++            || self.ctx.has_pending_auto_savepoint();
++        if !available
++            || self.ctx.globals.syscom.save_feature.check_enabled() != 1
++            || self.ctx.globals.syscom.pending_proc.is_some()
++            || self.ctx.has_pending_runtime_save_or_load()
++        {
++            return -1;
++        }
++        let save_cnt = self.configured_runtime_save_count(false);
++        let slot = if index >= 0 && (index as usize) < save_cnt {
++            index as usize
++        } else {
++            let free = (0..save_cnt).find(|&idx| {
++                self.runtime_save_file_path(RuntimeSaveKind::Normal, idx)
++                    .is_some_and(|path| !crate::resource::game_file_exists(&path))
++            });
++            match free {
++                Some(idx) => idx,
++                None => return -2,
++            }
++        };
++        if dry_run {
++            return slot as i64;
++        }
++        if self.ctx.take_pending_auto_savepoint() {
++            // As drain_runtime_save_load_requests does at the next boundary.
++            self.build_local_save_snapshot();
++            if let Some(snapshot) = self.ctx.local_save_snapshot.as_mut() {
++                snapshot.save_msg = self.ctx.globals.syscom.current_save_message.clone();
++            }
++        }
++        // The same place already in the same slot (the app left the screen again without
++        // reading on): nothing new to write or sync.
++        let place = {
++            use std::hash::{Hash, Hasher};
++            let mut hasher = std::collections::hash_map::DefaultHasher::new();
++            if let Some(snapshot) = self.ctx.local_save_snapshot.as_ref() {
++                snapshot.local_stream.hash(&mut hasher);
++                snapshot.save_msg.hash(&mut hasher);
++            }
++            (self.ctx.project_dir.clone(), slot, hasher.finish())
++        };
++        static LAST_HOST_SAVE: std::sync::Mutex<Option<(std::path::PathBuf, usize, u64)>> =
++            std::sync::Mutex::new(None);
++        let unchanged = LAST_HOST_SAVE.lock().map(|last| last.as_ref() == Some(&place)).unwrap_or(false);
++        if unchanged
++            && self
++                .runtime_save_file_path(RuntimeSaveKind::Normal, slot)
++                .is_some_and(|path| crate::resource::game_file_exists(&path))
++        {
++            return slot as i64;
++        }
++        crate::runtime::forms::syscom::prepare_runtime_save_thumb_capture_with_priority(
++            &mut self.ctx,
++            crate::runtime::forms::syscom::CAPTURE_PRIOR_SAVE,
++        );
++        match self.perform_runtime_save_request(RuntimeSaveRequest {
++            kind: RuntimeSaveKind::Normal,
++            index: slot,
++        }) {
++            Ok(()) => {
++                if let Ok(mut last) = LAST_HOST_SAVE.lock() {
++                    *last = Some(place);
++                }
++                slot as i64
++            }
++            Err(err) => {
++                log::error!("[SG_SAVELOAD] Shiori's save to slot {slot} failed: {err:#}");
++                -3
++            }
++        }
++    }
++
+     fn perform_runtime_save_request(&mut self, req: RuntimeSaveRequest) -> Result<()> {
+         if req.kind == RuntimeSaveKind::Inner {
+             // C++ `tnm_saveload_proc_create_inner_save` copies the current
+diff --git a/platform/ios/SiglusLauncher/Headers/siglus.h b/platform/ios/SiglusLauncher/Headers/siglus.h
+index 7e6d090..1adb51a 100644
+--- a/platform/ios/SiglusLauncher/Headers/siglus.h
++++ b/platform/ios/SiglusLauncher/Headers/siglus.h
+@@ -55,6 +55,11 @@ void siglus_ios_key(void *handle, int32_t code, int32_t down);
+    cursor sprite is drawn. has_custom_cursor is 1 while the game draws one. */
+ void siglus_ios_set_pointer_mode(void *handle, int32_t on);
+ int32_t siglus_ios_has_custom_cursor(void *handle);
++/* Shiori: saves the game's place in its own format (the save point where the message on
++   screen began) into normal slot index, or the first empty slot when index is
++   negative. Returns the slot, -1 when the game can't save now, -2 when no slot is free, -3
++   on failure; dry_run nonzero only answers which. Call between steps. */
++int32_t siglus_ios_save_place(void *handle, int32_t index, int32_t dry_run);
+ void siglus_ios_ime_preedit(void *handle, const char *text_utf8, int32_t cursor_start, int32_t cursor_end);
+ void siglus_ios_destroy(void *handle);
+ #endif
