@@ -1,0 +1,151 @@
+diff -ruN a/src/manager/backend/cpal/desktop/stream_manager.rs b/src/manager/backend/cpal/desktop/stream_manager.rs
+--- a/src/manager/backend/cpal/desktop/stream_manager.rs	2026-10-14 20:39:03
++++ b/src/manager/backend/cpal/desktop/stream_manager.rs	2026-10-14 20:41:17
+@@ -2,7 +2,7 @@
+ 
+ use std::{
+ 	sync::{
+-		atomic::{AtomicBool, Ordering},
++		atomic::{AtomicBool, AtomicU64, Ordering},
+ 		Arc,
+ 	},
+ 	time::Duration,
+@@ -21,6 +21,18 @@
+ 
+ const CHECK_STREAM_INTERVAL: Duration = Duration::from_millis(500);
+ 
++/// Counts [`request_stream_restart`] calls; each stream manager's thread restarts its stream
++/// on its next check when this has moved on (Shiori: iOS stops the output unit on an
++/// interruption or a media services reset and never starts it again, so the host asks for a
++/// new stream).
++static RESTART_GENERATION: AtomicU64 = AtomicU64::new(0);
++
++/// Asks every running stream manager to rebuild its output stream on the default device
++/// (within half a second), keeping the renderer and so everything playing.
++pub fn request_stream_restart() {
++	RESTART_GENERATION.fetch_add(1, Ordering::SeqCst);
++}
++
+ #[allow(clippy::large_enum_variant)]
+ enum State {
+ 	Empty,
+@@ -52,6 +64,8 @@
+ 	sample_rate: u32,
+ 	custom_device: bool,
+ 	buffer_size: BufferSize,
++	/// The restart requests already acted on.
++	restart_generation: u64,
+ }
+ 
+ impl StreamManager {
+@@ -71,8 +85,9 @@
+ 				sample_rate: config.sample_rate.0,
+ 				custom_device,
+ 				buffer_size,
++				restart_generation: RESTART_GENERATION.load(Ordering::SeqCst),
+ 			};
+-			stream_manager.start_stream(&device, &mut config).unwrap();
++			if let Err(error) = stream_manager.start_stream(&device, &mut config) { eprintln!("kira: starting the stream failed: {error:?}"); }
+ 			loop {
+ 				std::thread::sleep(CHECK_STREAM_INTERVAL);
+ 				if should_drop.load(Ordering::SeqCst) {
+@@ -88,6 +103,26 @@
+ 
+ 	/// Restarts the stream if the audio device gets disconnected.
+ 	fn check_stream(&mut self) {
++		// A restart the host asked for, or one that failed before (the device not ready yet).
++		let generation = RESTART_GENERATION.load(Ordering::SeqCst);
++		if generation != self.restart_generation || matches!(self.state, State::Idle { .. }) {
++			self.restart_generation = generation;
++			if matches!(self.state, State::Running { .. }) {
++				self.stop_stream();
++			}
++			if matches!(self.state, State::Idle { .. }) {
++				match default_device_and_config() {
++					Ok((device, mut config)) => {
++						match self.start_stream(&device, &mut config) {
++							Ok(()) => eprintln!("kira: stream restarted ({} Hz)", self.sample_rate),
++							Err(error) => eprintln!("kira: restarting the stream failed: {error:?}"),
++						}
++					}
++					Err(error) => eprintln!("kira: no output device to restart on: {error:?}"),
++				}
++			}
++			return;
++		}
+ 		if let State::Running {
+ 			stream_error_consumer,
+ 			..
+@@ -98,7 +133,7 @@
+ 				self.stop_stream();
+ 				if let Ok((device, mut config)) = default_device_and_config() {
+ 					// TODO: gracefully handle errors that occur in this function
+-					self.start_stream(&device, &mut config).unwrap();
++					if let Err(error) = self.start_stream(&device, &mut config) { eprintln!("kira: restarting the stream failed: {error:?}"); }
+ 				}
+ 			}
+ 			// check for device changes if a custom device hasn't been specified
+@@ -112,7 +147,7 @@
+ 					let sample_rate = config.sample_rate.0;
+ 					if device_name != self.device_name || sample_rate != self.sample_rate {
+ 						self.stop_stream();
+-						self.start_stream(&device, &mut config).unwrap();
++						if let Err(error) = self.start_stream(&device, &mut config) { eprintln!("kira: restarting the stream failed: {error:?}"); }
+ 					}
+ 				}
+ 			}
+@@ -153,14 +188,33 @@
+ 					.expect("Stream error producer is full");
+ 			},
+ 			None,
+-		)?;
+-		stream.play()?;
++		);
++		// On failure the closure (and the renderer in it) is dropped: take the renderer back,
++		// so a later restart can try again.
++		let stream = match stream {
++			Ok(stream) => stream,
++			Err(error) => {
++				self.recover_renderer(renderer_consumer);
++				return Err(error.into());
++			}
++		};
++		if let Err(error) = stream.play() {
++			drop(stream);
++			self.recover_renderer(renderer_consumer);
++			return Err(error.into());
++		}
+ 		self.state = State::Running {
+ 			stream,
+ 			stream_error_consumer,
+ 			renderer_consumer,
+ 		};
+ 		Ok(())
++	}
++
++	fn recover_renderer(&mut self, mut renderer_consumer: HeapConsumer<Renderer>) {
++		if let Some(renderer) = renderer_consumer.pop() {
++			self.state = State::Idle { renderer };
++		}
+ 	}
+ 
+ 	fn stop_stream(&mut self) {
+diff -ruN a/src/manager/backend/cpal/desktop.rs b/src/manager/backend/cpal/desktop.rs
+--- a/src/manager/backend/cpal/desktop.rs	2026-10-14 20:39:03
++++ b/src/manager/backend/cpal/desktop.rs	2026-10-14 20:39:22
+@@ -1,5 +1,6 @@
+ mod stream_manager;
+ 
++pub use stream_manager::request_stream_restart;
+ use stream_manager::{StreamManager, StreamManagerController};
+ 
+ use crate::manager::backend::{Backend, Renderer};
+diff -ruN a/src/manager/backend/cpal.rs b/src/manager/backend/cpal.rs
+--- a/src/manager/backend/cpal.rs	2026-10-14 20:39:03
++++ b/src/manager/backend/cpal.rs	2026-10-14 20:39:22
+@@ -37,4 +37,4 @@
+ #[cfg(not(target_arch = "wasm32"))]
+ mod desktop;
+ #[cfg(not(target_arch = "wasm32"))]
+-pub use desktop::CpalBackend;
++pub use desktop::{request_stream_restart, CpalBackend};

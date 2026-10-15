@@ -55,6 +55,10 @@ void siglus_ios_key(void *handle, int32_t code, int32_t down);
    cursor sprite is drawn. has_custom_cursor is 1 while the game draws one. */
 void siglus_ios_set_pointer_mode(void *handle, int32_t on);
 int32_t siglus_ios_has_custom_cursor(void *handle);
+/* Shiori: rebuilds the audio output (iOS stops it on an interruption or a media services
+   reset) on the current route, keeping what plays. Call when an interruption ends, the route
+   changes or media services are reset. */
+void siglus_ios_restart_audio(void);
 /* Shiori: saves the game's place in its own format (the save point where the message on
    screen began) into normal slot index, or the first empty slot when index is
    negative. Returns the slot, -1 when the game can't save now, -2 when no slot is free, -3

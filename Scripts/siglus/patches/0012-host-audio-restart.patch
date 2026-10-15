@@ -1,0 +1,54 @@
+diff -ruN a/Cargo.toml b/Cargo.toml
+--- a/Cargo.toml	2026-10-14 20:39:03
++++ b/Cargo.toml	2026-10-14 20:39:03
+@@ -4,7 +4,7 @@
+   "crates/*",
+ ]
+ # Shiori: the reallive crate is not built or shipped (see game_launcher).
+-exclude = ["vendor/eluna_rs", "crates/reallive"]
++exclude = ["vendor/eluna_rs", "vendor/kira-0.9.6", "crates/reallive"]
+ 
+ [workspace.package]
+ edition = "2024"
+@@ -42,3 +42,8 @@
+ env_logger = "0.11"
+ kira = "0.9"
+ chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
++
++# Shiori: kira 0.9.6 with a stream restart the iOS host asks for after an audio interruption,
++# a route change or a media services reset (Scripts/siglus/kira-0.9.6-restart.patch).
++[patch.crates-io]
++kira = { path = "vendor/kira-0.9.6" }
+diff -ruN a/crates/siglus_scene_vm/src/ios_host.rs b/crates/siglus_scene_vm/src/ios_host.rs
+--- a/crates/siglus_scene_vm/src/ios_host.rs	2026-10-14 20:39:03
++++ b/crates/siglus_scene_vm/src/ios_host.rs	2026-10-14 20:39:03
+@@ -348,6 +348,15 @@
+     }
+ }
+ 
++/// Shiori: rebuilds the audio output stream on the current output (within half a second),
++/// keeping everything that plays. iOS stops the output unit on an interruption or a media
++/// services reset and never starts it again; the host calls this when the interruption ends,
++/// the route changes or media services come back. Needs no handle.
++#[unsafe(no_mangle)]
++pub extern "C" fn siglus_ios_restart_audio() {
++    kira::manager::backend::cpal::request_stream_restart();
++}
++
+ /// Shiori: saves the game's place, in its own format, as the app leaves the screen or the
+ /// player leaves the game (`SceneVm::shiori_host_save`): into normal slot `index`, or the
+ /// first empty slot when `index` is negative. Call between steps. Returns the
+diff -ruN a/platform/ios/SiglusLauncher/Headers/siglus.h b/platform/ios/SiglusLauncher/Headers/siglus.h
+--- a/platform/ios/SiglusLauncher/Headers/siglus.h	2026-10-14 20:39:03
++++ b/platform/ios/SiglusLauncher/Headers/siglus.h	2026-10-14 20:39:03
+@@ -55,6 +55,10 @@
+    cursor sprite is drawn. has_custom_cursor is 1 while the game draws one. */
+ void siglus_ios_set_pointer_mode(void *handle, int32_t on);
+ int32_t siglus_ios_has_custom_cursor(void *handle);
++/* Shiori: rebuilds the audio output (iOS stops it on an interruption or a media services
++   reset) on the current route, keeping what plays. Call when an interruption ends, the route
++   changes or media services are reset. */
++void siglus_ios_restart_audio(void);
+ /* Shiori: saves the game's place in its own format (the save point where the message on
+    screen began) into normal slot index, or the first empty slot when index is
+    negative. Returns the slot, -1 when the game can't save now, -2 when no slot is free, -3
