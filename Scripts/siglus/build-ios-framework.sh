@@ -1,4 +1,8 @@
 #!/bin/sh
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at
+# https://mozilla.org/MPL/2.0/.
+#
 # Builds siglus_rs's iOS library (the game_launcher crate, C interface siglus.h) as
 # Vendor/ShioriSiglus.xcframework: one dynamic framework per slice (device and simulator), so
 # the Rust runtime and its dependencies stay inside their own image, apart from Ren'Py's and
@@ -47,8 +51,15 @@ PLIST
   args="$args -framework $framework"
 done
 
-# The C interface, for Swift (Packages/SiglusKit).
-cp "$SRC/platform/ios/SiglusLauncher/Headers/siglus.h" "$ROOT/Packages/SiglusKit/Sources/CSiglus/include/siglus.h"
+# The C interface, for Swift (Packages/SiglusKit), with siglus_rs's MPL-2.0 notice (the
+# upstream header has none).
+{
+  echo "// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0."
+  echo "// If a copy of the MPL was not distributed with this file, You can obtain one at"
+  echo "// https://mozilla.org/MPL/2.0/."
+  echo ""
+  cat "$SRC/platform/ios/SiglusLauncher/Headers/siglus.h"
+} > "$ROOT/Packages/SiglusKit/Sources/CSiglus/include/siglus.h"
 
 echo "==> $OUT"
 # shellcheck disable=SC2086

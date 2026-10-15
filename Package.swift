@@ -1,4 +1,8 @@
 // swift-tools-version: 6.0
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file, You can obtain one at
+// https://mozilla.org/MPL/2.0/.
+
 import PackageDescription
 
 // Siglus games run on siglus_rs (MPL-2.0), fetched and patched by Scripts/siglus/fetch-siglus.sh

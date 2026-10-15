@@ -1,4 +1,8 @@
 #!/bin/sh
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at
+# https://mozilla.org/MPL/2.0/.
+#
 # Fetches siglus_rs, the SiglusEngine reimplementation Shiori embeds (MPL-2.0), into
 # Vendor/siglus_rs. See spec.md, "Siglus engine". Vendor/ is gitignored. Safe to re-run: an
 # existing checkout at the pinned commit is left alone.
