@@ -1,6 +1,7 @@
 #ifndef SIGLUS_H
 #define SIGLUS_H
 
+#include <stddef.h>
 #include <stdint.h>
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
@@ -21,6 +22,59 @@ void siglus_string_free(char *ptr);
 char *siglus_game_name_from_dir(const char *game_root_utf8);
 char *siglus_game_cover_path_from_dir(const char *game_root_utf8);
 char *siglus_game_cover_mime_from_dir(const char *game_root_utf8);
+
+/* Shiori: movies the host decodes. Windows Media movies (ASF: WMV 7/8/9 or VC-1 video, WMA
+   1/2, Pro or Lossless sound) and MPEG-1/2 video are decoded by the host app (Shiori: its
+   LGPL FFmpeg), not by the engine. Register once, before creating a game; without them those
+   movies don't open and the game goes on past them. */
+#define SIGLUS_HOST_NO_PTS INT64_MIN
+typedef struct SiglusHostPicture {
+    uint32_t width, height;
+    const uint8_t *planes[3];        /* Y, Cb, Cr, 8-bit */
+    uint32_t strides[3];             /* bytes per row */
+    uint32_t chroma_shift_x, chroma_shift_y; /* 1, 1 for 4:2:0 */
+    int64_t pts;                     /* ms (ASF) or 90 kHz (MPEG); SIGLUS_HOST_NO_PTS */
+    int32_t key_frame;
+} SiglusHostPicture;
+typedef struct SiglusHostSound {
+    const float *samples;            /* interleaved */
+    uint32_t frames, channels, sample_rate;
+    int64_t pts_ms;                  /* or SIGLUS_HOST_NO_PTS */
+} SiglusHostSound;
+/* has_video, has_audio: 1 a stream the host decodes, 0 none, -1 one it can't decode. */
+typedef struct SiglusHostMovieInfo {
+    uint32_t width, height;
+    int64_t duration_ms;             /* -1 unknown */
+    int32_t has_video, has_audio;
+    uint32_t sample_rate, channels;
+} SiglusHostMovieInfo;
+/* The movie file, read through the engine: read returns the bytes read (0 at the end,
+   negative on error); seek takes SEEK_SET/CUR/END or 0x10000 (the size) and returns the new
+   position, negative on error. */
+typedef struct SiglusHostIO {
+    void *opaque;
+    int32_t (*read)(void *opaque, uint8_t *buf, int32_t len);
+    int64_t (*seek)(void *opaque, int64_t offset, int32_t whence);
+} SiglusHostIO;
+/* Pictures and sound stay valid until the next call on the same handle. Each handle is
+   used by one thread at a time. */
+typedef struct SiglusHostMedia {
+    uint32_t version;                /* 1 */
+    /* want: 1 video, 2 sound. io stays valid until asf_close. NULL if unreadable. */
+    void *(*asf_open)(const SiglusHostIO *io, int32_t want, SiglusHostMovieInfo *info);
+    int32_t (*asf_next_picture)(void *movie, SiglusHostPicture *out); /* 1, 0 end, <0 error */
+    int32_t (*asf_next_sound)(void *movie, SiglusHostSound *out);     /* 1, 0 end, <0 error */
+    void (*asf_close)(void *movie);
+    /* MPEG-1/2 video elementary stream, fed in arbitrary pieces; pts_90k is the first
+       picture starting in them. NULL data drains at the end. send: 0, <0 fatal error.
+       receive: 1 a picture (presentation order), 0 needs more data. */
+    void *(*mpeg_video_open)(void);
+    int32_t (*mpeg_video_send)(void *decoder, const uint8_t *data, size_t len, int64_t pts_90k);
+    int32_t (*mpeg_video_receive)(void *decoder, SiglusHostPicture *out);
+    void (*mpeg_video_close)(void *decoder);
+} SiglusHostMedia;
+/* Copies media; NULL removes it. */
+void siglus_set_host_media(const SiglusHostMedia *media);
 
 #if defined(__APPLE__) && TARGET_OS_IPHONE
 void *siglus_ios_create(

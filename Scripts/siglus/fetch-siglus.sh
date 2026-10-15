@@ -45,6 +45,16 @@ git -C "$DEST" checkout -q "$SIGLUS_COMMIT"
 #       services come back. Builds kira from vendor/kira-<version> ([patch.crates-io]), with
 #       kira-<version>-restart.patch: a restart request the stream manager's thread acts on,
 #       and a failed (re)start keeps the renderer to try again.
+# 0013: movies the host decodes, and no network code or egui on iOS. na_wmv_player (crate
+#       wmv-decoder) and the video decoder in na_mpeg2_decoder are translations of FFmpeg's
+#       VC-1/WMV, WMA and MPEG-1/2 video code (LGPL), so they are not built: a new crate,
+#       shiori_host_media, hands Windows Media movies (ASF read through callbacks) and MPEG-1/2
+#       video elementary streams to the app (siglus_set_host_media in siglus.h), which decodes
+#       them with its own LGPL FFmpeg (App/Sources/Engines/Siglus/SiglusMedia.swift).
+#       na_mpeg2_decoder keeps its demuxer and MPEG audio (Symphonia, oxideav-ac3); OMV stays on
+#       theora-rs. ureq (with rustls, ring and webpki-roots) isn't built for iOS, where the
+#       game's network commands report themselves unavailable, and egui (with its bundled
+#       fonts) is built only for the desktop dialogs that use it.
 for patch in Scripts/siglus/patches/[0-9]*.patch; do
   git -C "$DEST" apply "$PWD/$patch"
 done
@@ -59,6 +69,11 @@ patch -s -p1 -d "$DEST/vendor/kira-$KIRA_VERSION" < "Scripts/siglus/kira-$KIRA_V
 rm -f "$DEST/crates/siglus_scene_vm/assets/fonts/default.ttf"
 # The reallive crate goes too (0010), dt00/pt00 and all, so nothing can link it back in.
 rm -rf "$DEST/crates/reallive"
+# The FFmpeg translations go too (0013), so nothing can link them back in.
+rm -rf "$DEST/crates/na_wmv_player"
+for f in bitreader decoder idct motion startcode tables utils videodsp vlc vlctables; do
+  rm -f "$DEST/crates/na_mpeg2_decoder/src/video/$f.rs"
+done
 
 echo "$VERSION" > "$STAMP"
 echo "siglus_rs ready in $DEST"

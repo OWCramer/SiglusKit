@@ -1,0 +1,1164 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index dbee89e..c1140d8 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -943,19 +943,6 @@ dependencies = [
+  "regex",
+ ]
+ 
+-[[package]]
+-name = "env_logger"
+-version = "0.10.2"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
+-dependencies = [
+- "humantime",
+- "is-terminal",
+- "log",
+- "regex",
+- "termcolor",
+-]
+-
+ [[package]]
+ name = "env_logger"
+ version = "0.11.9"
+@@ -1357,12 +1344,6 @@ version = "3.5.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "62adaabb884c94955b19907d60019f4e145d091c75345379e70d1ee696f7854f"
+ 
+-[[package]]
+-name = "humantime"
+-version = "2.4.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "15cdd26707701c53297e2fa6afb323d55fbc1d0810c3aec078ae3ef0424c3c15"
+-
+ [[package]]
+ name = "iana-time-zone"
+ version = "0.1.65"
+@@ -1525,17 +1506,6 @@ dependencies = [
+  "hashbrown 0.16.1",
+ ]
+ 
+-[[package]]
+-name = "is-terminal"
+-version = "0.4.17"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
+-dependencies = [
+- "hermit-abi",
+- "libc",
+- "windows-sys 0.61.2",
+-]
+-
+ [[package]]
+ name = "is_terminal_polyfill"
+ version = "1.70.2"
+@@ -1664,7 +1634,7 @@ dependencies = [
+  "glam",
+  "mint",
+  "paste",
+- "ringbuf 0.3.3",
++ "ringbuf",
+  "send_wrapper",
+  "symphonia",
+  "triple_buffer",
+@@ -1871,13 +1841,14 @@ dependencies = [
+  "bytemuck",
+  "byteorder",
+  "crossbeam-channel",
+- "env_logger 0.11.9",
++ "env_logger",
+  "log",
+  "oxideav-ac3",
+  "oxideav-core",
+  "png 0.17.16",
+  "pollster",
+  "rodio",
++ "shiori_host_media",
+  "symphonia",
+  "thiserror 1.0.69",
+  "wgpu 0.19.4",
+@@ -2619,17 +2590,6 @@ dependencies = [
+  "crossbeam-utils",
+ ]
+ 
+-[[package]]
+-name = "ringbuf"
+-version = "0.4.8"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "fe47b720588c8702e34b5979cb3271a8b1842c7cb6f57408efa70c779363488c"
+-dependencies = [
+- "crossbeam-utils",
+- "portable-atomic",
+- "portable-atomic-util",
+-]
+-
+ [[package]]
+ name = "rodio"
+ version = "0.17.3"
+@@ -2839,6 +2799,13 @@ dependencies = [
+  "shion-xfile",
+ ]
+ 
++[[package]]
++name = "shiori_host_media"
++version = "0.1.0"
++dependencies = [
++ "anyhow",
++]
++
+ [[package]]
+ name = "shlex"
+ version = "1.3.0"
+@@ -2942,7 +2909,7 @@ dependencies = [
+  "egui-wgpu",
+  "eluna_rs",
+  "encoding_rs",
+- "env_logger 0.11.9",
++ "env_logger",
+  "getrandom 0.2.17",
+  "getrandom 0.3.4",
+  "image",
+@@ -2956,6 +2923,7 @@ dependencies = [
+  "rustc-hash 2.1.1",
+  "serde_json",
+  "shion-xfile",
++ "shiori_host_media",
+  "siglus_assets",
+  "siglus_key_recovery",
+  "siglus_omv_decoder",
+@@ -2968,7 +2936,6 @@ dependencies = [
+  "web-time 1.1.0",
+  "wgpu 0.20.1",
+  "winit 0.31.0-beta.3",
+- "wmv-decoder",
+ ]
+ 
+ [[package]]
+@@ -2996,7 +2963,7 @@ dependencies = [
+  "anyhow",
+  "bytemuck",
+  "clap",
+- "env_logger 0.11.9",
++ "env_logger",
+  "log",
+  "pollster",
+  "shion-render",
+@@ -4787,26 +4754,6 @@ version = "0.51.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "d7249219f66ced02969388cf2bb044a09756a083d0fab1e566056b04d9fbcaa5"
+ 
+-[[package]]
+-name = "wmv-decoder"
+-version = "0.2.0"
+-dependencies = [
+- "anyhow",
+- "bytemuck",
+- "byteorder",
+- "cpal",
+- "crossbeam-channel",
+- "env_logger 0.10.2",
+- "kira",
+- "log",
+- "png 0.17.16",
+- "pollster",
+- "ringbuf 0.4.8",
+- "thiserror 1.0.69",
+- "wgpu 0.19.4",
+- "winit 0.29.15",
+-]
+-
+ [[package]]
+ name = "writeable"
+ version = "0.6.3"
+diff --git a/crates/na_mpeg2_decoder/Cargo.toml b/crates/na_mpeg2_decoder/Cargo.toml
+index d1793b7..c9e99c4 100644
+--- a/crates/na_mpeg2_decoder/Cargo.toml
++++ b/crates/na_mpeg2_decoder/Cargo.toml
+@@ -9,6 +9,8 @@ name = "na_mpeg2_decoder"
+ path = "src/lib.rs"
+ 
+ [dependencies]
++# Shiori: MPEG-1/2 video is decoded by the host app (src/video/host.rs).
++shiori_host_media = { path = "../shiori_host_media" }
+ thiserror = "1"
+ log = "0.4"
+ byteorder = "1"
+diff --git a/crates/na_mpeg2_decoder/src/video/host.rs b/crates/na_mpeg2_decoder/src/video/host.rs
+new file mode 100644
+index 0000000..8a73765
+--- /dev/null
++++ b/crates/na_mpeg2_decoder/src/video/host.rs
+@@ -0,0 +1,101 @@
++//! Shiori: MPEG-1/2 video decoded by the host app (`shiori_host_media`), in place of the
++//! decoder translated from FFmpeg that Shiori builds without. Same interface: elementary-stream
++//! bytes in, pictures in presentation order out.
++
++use std::sync::Arc;
++
++use shiori_host_media::mpeg::MpegVideoDecoder;
++
++use super::error::{DecodeError, Result};
++use super::frame::{Frame, PixelFormat};
++
++#[derive(Debug, Default)]
++pub struct Decoder {
++    host: Option<MpegVideoDecoder>,
++    failed: bool,
++}
++
++impl Decoder {
++    pub fn new() -> Self {
++        Self::default()
++    }
++
++    fn host(&mut self) -> Result<&mut MpegVideoDecoder> {
++        if self.host.is_none() {
++            if self.failed {
++                return Err(DecodeError::Unsupported("no MPEG video decoder"));
++            }
++            match MpegVideoDecoder::new() {
++                Ok(decoder) => self.host = Some(decoder),
++                Err(err) => {
++                    log::error!("MPEG video: {err:#}");
++                    self.failed = true;
++                    return Err(DecodeError::Unsupported("no MPEG video decoder"));
++                }
++            }
++        }
++        Ok(self.host.as_mut().expect("opened above"))
++    }
++
++    fn collect(decoder: &mut MpegVideoDecoder, out: &mut Vec<Arc<Frame>>) -> Result<()> {
++        loop {
++            let picture = decoder.receive().map_err(|err| {
++                log::error!("MPEG video: {err:#}");
++                DecodeError::Internal("host decoder")
++            })?;
++            let Some(picture) = picture else { return Ok(()) };
++            let format = match picture.chroma_shift {
++                (1, 1) => PixelFormat::Yuv420p,
++                (1, 0) => PixelFormat::Yuv422p,
++                (0, 0) => PixelFormat::Yuv444p,
++                _ => return Err(DecodeError::Unsupported("chroma format")),
++            };
++            let (cw, _) = picture.chroma_size();
++            out.push(Arc::new(Frame {
++                width: picture.width,
++                height: picture.height,
++                format,
++                data_y: picture.packed_plane(0),
++                data_u: picture.packed_plane(1),
++                data_v: picture.packed_plane(2),
++                linesize_y: picture.width,
++                linesize_u: cw,
++                linesize_v: cw,
++                pts_90k: picture.pts,
++            }));
++        }
++    }
++
++    pub fn decode_shared(&mut self, data: &[u8], pts_90k: Option<i64>) -> Result<Vec<Arc<Frame>>> {
++        let decoder = self.host()?;
++        decoder.send(data, pts_90k).map_err(|err| {
++            log::error!("MPEG video: {err:#}");
++            DecodeError::Internal("host decoder")
++        })?;
++        let mut out = Vec::new();
++        Self::collect(decoder, &mut out)?;
++        Ok(out)
++    }
++
++    pub fn flush_shared(&mut self) -> Result<Vec<Arc<Frame>>> {
++        let mut out = Vec::new();
++        // Nothing was ever sent: nothing to drain.
++        let Some(decoder) = self.host.as_mut() else { return Ok(out) };
++        decoder.drain().map_err(|err| {
++            log::error!("MPEG video: {err:#}");
++            DecodeError::Internal("host decoder")
++        })?;
++        Self::collect(decoder, &mut out)?;
++        // The host decoder ends with the stream; a later push starts a new one.
++        self.host = None;
++        Ok(out)
++    }
++
++    pub fn decode(&mut self, data: &[u8], pts_90k: Option<i64>) -> Result<Vec<Frame>> {
++        Ok(self.decode_shared(data, pts_90k)?.into_iter().map(|f| (*f).clone()).collect())
++    }
++
++    pub fn flush(&mut self) -> Result<Vec<Frame>> {
++        Ok(self.flush_shared()?.into_iter().map(|f| (*f).clone()).collect())
++    }
++}
+diff --git a/crates/na_mpeg2_decoder/src/video/mod.rs b/crates/na_mpeg2_decoder/src/video/mod.rs
+index 4b1097e..dff5d59 100644
+--- a/crates/na_mpeg2_decoder/src/video/mod.rs
++++ b/crates/na_mpeg2_decoder/src/video/mod.rs
+@@ -1,16 +1,10 @@
+-mod bitreader;
+-mod decoder;
++// Shiori: the pictures are decoded by the host app (host.rs, shiori_host_media). The decoder
++// that was here (bitreader, decoder, idct, motion, startcode, tables, utils, videodsp, vlc,
++// vlctables) is a translation of FFmpeg's MPEG-1/2 video decoder and is not built.
+ mod error;
+ mod frame;
+-mod idct;
+-mod motion;
+-mod startcode;
+-mod tables;
+-mod utils;
+-mod videodsp;
+-mod vlc;
+-mod vlctables;
++mod host;
+ 
+-pub use decoder::Decoder;
+ pub use error::{DecodeError, Result};
+ pub use frame::{Frame, PixelFormat};
++pub use host::Decoder;
+diff --git a/crates/shiori_host_media/Cargo.toml b/crates/shiori_host_media/Cargo.toml
+new file mode 100644
+index 0000000..fcbc754
+--- /dev/null
++++ b/crates/shiori_host_media/Cargo.toml
+@@ -0,0 +1,16 @@
++[package]
++name = "shiori_host_media"
++version = "0.1.0"
++edition.workspace = true
++license.workspace = true
++description = "Shiori: Windows Media (ASF) movies and MPEG-1/2 video decoded by the host app (siglus_set_host_media)"
++
++[lib]
++name = "shiori_host_media"
++path = "src/lib.rs"
++
++[dependencies]
++anyhow.workspace = true
++
++[lints]
++workspace = true
+diff --git a/crates/shiori_host_media/src/lib.rs b/crates/shiori_host_media/src/lib.rs
+new file mode 100644
+index 0000000..0211bdf
+--- /dev/null
++++ b/crates/shiori_host_media/src/lib.rs
+@@ -0,0 +1,230 @@
++//! Shiori: movie decoding the host app provides.
++//!
++//! Upstream siglus_rs decodes Windows Media movies (ASF with WMV video and WMA sound) and
++//! MPEG-1/2 video with its own Rust ports of FFmpeg's decoders (`na_wmv_player`, and the video
++//! half of `na_mpeg2_decoder`). Shiori builds without those ports and hands the work to the
++//! app, which decodes with its own LGPL build of FFmpeg: the app registers its decoders once,
++//! with `siglus_set_host_media` (siglus.h), before it creates a game. Without them these movies
++//! don't open, and the game goes on past them.
++//!
++//! - [`wmv`]: an ASF file, read through callbacks into Rust, demuxed and decoded by the host
++//!   (WMV 7/8/9 and VC-1 pictures, WMA 1/2, Pro and Lossless sound). Same interface as the
++//!   `wmv_decoder` crate it replaces.
++//! - [`mpeg`]: an MPEG-1/2 video elementary stream, pushed in pieces as siglus_rs's own
++//!   demuxer finds them (`na_mpeg2_decoder` keeps its demuxer and MPEG audio).
++
++use std::ffi::c_void;
++use std::io::{Read, Seek, SeekFrom};
++use std::sync::Mutex;
++
++pub mod mpeg;
++pub mod wmv;
++
++/// No timestamp.
++pub const SIGLUS_HOST_NO_PTS: i64 = i64::MIN;
++
++/// One decoded picture, 8-bit planar Y'CbCr; the planes stay valid until the next call on the
++/// same handle.
++#[repr(C)]
++#[derive(Clone, Copy)]
++pub struct SiglusHostPicture {
++    pub width: u32,
++    pub height: u32,
++    /// Y, Cb, Cr.
++    pub planes: [*const u8; 3],
++    /// Bytes per row of each plane.
++    pub strides: [u32; 3],
++    /// log2 of the chroma subsampling (1, 1 for 4:2:0).
++    pub chroma_shift_x: u32,
++    pub chroma_shift_y: u32,
++    /// Milliseconds for an ASF movie, 90 kHz ticks for MPEG video; `SIGLUS_HOST_NO_PTS` when
++    /// unknown.
++    pub pts: i64,
++    pub key_frame: i32,
++}
++
++/// Decoded sound, interleaved 32-bit float; valid until the next call on the same handle.
++#[repr(C)]
++#[derive(Clone, Copy)]
++pub struct SiglusHostSound {
++    pub samples: *const f32,
++    pub frames: u32,
++    pub channels: u32,
++    pub sample_rate: u32,
++    /// Milliseconds, or `SIGLUS_HOST_NO_PTS`.
++    pub pts_ms: i64,
++}
++
++/// What an opened movie has. `has_video`/`has_audio`: 1 a stream the host decodes, 0 none,
++/// -1 a stream it can't decode.
++#[repr(C)]
++#[derive(Clone, Copy, Default)]
++pub struct SiglusHostMovieInfo {
++    pub width: u32,
++    pub height: u32,
++    /// -1 when unknown.
++    pub duration_ms: i64,
++    pub has_video: i32,
++    pub has_audio: i32,
++    pub sample_rate: u32,
++    pub channels: u32,
++}
++
++/// The movie file, read by the host through Rust: `read` returns the bytes read (0 at the end,
++/// negative on error); `seek` takes SEEK_SET, SEEK_CUR or SEEK_END (or 0x10000, AVSEEK_SIZE:
++/// the file's size) and returns the new position, negative on error.
++#[repr(C)]
++#[derive(Clone, Copy)]
++pub struct SiglusHostIO {
++    pub opaque: *mut c_void,
++    pub read: unsafe extern "C" fn(opaque: *mut c_void, buf: *mut u8, len: i32) -> i32,
++    pub seek: unsafe extern "C" fn(opaque: *mut c_void, offset: i64, whence: i32) -> i64,
++}
++
++/// The decoders the host provides (`siglus_set_host_media`). Any may be missing.
++#[repr(C)]
++#[derive(Clone, Copy)]
++pub struct SiglusHostMedia {
++    /// 1.
++    pub version: u32,
++    /// Opens an ASF file through `io` (which stays valid until `asf_close`) for its video
++    /// (`want` 1) or its sound (`want` 2), and fills `info`. NULL when it isn't a movie the
++    /// host can read.
++    pub asf_open: Option<
++        unsafe extern "C" fn(io: *const SiglusHostIO, want: i32, info: *mut SiglusHostMovieInfo) -> *mut c_void,
++    >,
++    /// The next picture in presentation order: 1, 0 at the end, negative on error.
++    pub asf_next_picture: Option<unsafe extern "C" fn(movie: *mut c_void, out: *mut SiglusHostPicture) -> i32>,
++    /// The next piece of sound: 1, 0 at the end, negative on error.
++    pub asf_next_sound: Option<unsafe extern "C" fn(movie: *mut c_void, out: *mut SiglusHostSound) -> i32>,
++    pub asf_close: Option<unsafe extern "C" fn(movie: *mut c_void)>,
++    /// An MPEG-1/2 video decoder fed elementary-stream bytes in arbitrary pieces.
++    pub mpeg_video_open: Option<unsafe extern "C" fn() -> *mut c_void>,
++    /// Feeds `len` bytes whose first picture starts at `pts_90k` (or `SIGLUS_HOST_NO_PTS`);
++    /// NULL data drains the decoder at the end of the stream. 0, or negative on a fatal error
++    /// (damaged data is skipped, not an error).
++    pub mpeg_video_send:
++        Option<unsafe extern "C" fn(decoder: *mut c_void, data: *const u8, len: usize, pts_90k: i64) -> i32>,
++    /// The next decoded picture in presentation order: 1, or 0 when it needs more data.
++    pub mpeg_video_receive: Option<unsafe extern "C" fn(decoder: *mut c_void, out: *mut SiglusHostPicture) -> i32>,
++    pub mpeg_video_close: Option<unsafe extern "C" fn(decoder: *mut c_void)>,
++}
++
++// Plain function pointers; the host's decoders may run on any thread (one call at a time per
++// handle).
++unsafe impl Send for SiglusHostMedia {}
++
++static HOST: Mutex<Option<SiglusHostMedia>> = Mutex::new(None);
++
++/// Registers the host's decoders (copied; NULL removes them). Call before creating a game.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn siglus_set_host_media(media: *const SiglusHostMedia) {
++    let media = unsafe { media.as_ref() }.copied();
++    *HOST.lock().unwrap_or_else(|e| e.into_inner()) = media;
++}
++
++pub(crate) fn host() -> anyhow::Result<SiglusHostMedia> {
++    HOST.lock()
++        .unwrap_or_else(|e| e.into_inner())
++        .filter(|media| media.version >= 1)
++        .ok_or_else(|| anyhow::anyhow!("no movie decoder: the host never called siglus_set_host_media"))
++}
++
++pub(crate) unsafe extern "C" fn io_read<R: Read>(opaque: *mut c_void, buf: *mut u8, len: i32) -> i32 {
++    if opaque.is_null() || buf.is_null() || len <= 0 {
++        return if len == 0 { 0 } else { -1 };
++    }
++    let reader = unsafe { &mut *(opaque as *mut R) };
++    let out = unsafe { std::slice::from_raw_parts_mut(buf, len as usize) };
++    loop {
++        match reader.read(out) {
++            Ok(n) => return n as i32,
++            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
++            Err(_) => return -1,
++        }
++    }
++}
++
++pub(crate) unsafe extern "C" fn io_seek<R: Seek>(opaque: *mut c_void, offset: i64, whence: i32) -> i64 {
++    if opaque.is_null() {
++        return -1;
++    }
++    let reader = unsafe { &mut *(opaque as *mut R) };
++    if whence & 0x10000 != 0 {
++        // AVSEEK_SIZE: the size, leaving the position where it was.
++        let Ok(position) = reader.stream_position() else { return -1 };
++        let size = reader.seek(SeekFrom::End(0));
++        let _ = reader.seek(SeekFrom::Start(position));
++        return size.map(|s| s as i64).unwrap_or(-1);
++    }
++    let target = match whence & 3 {
++        0 if offset >= 0 => SeekFrom::Start(offset as u64),
++        1 => SeekFrom::Current(offset),
++        2 => SeekFrom::End(offset),
++        _ => return -1,
++    };
++    reader.seek(target).map(|p| p as i64).unwrap_or(-1)
++}
++
++/// A borrowed view of a host picture.
++pub struct Picture<'a> {
++    pub width: usize,
++    pub height: usize,
++    pub chroma_shift: (u32, u32),
++    pub planes: [&'a [u8]; 3],
++    pub strides: [usize; 3],
++    pub pts: Option<i64>,
++    pub key_frame: bool,
++}
++
++impl<'a> Picture<'a> {
++    /// # Safety
++    /// The planes must hold `height` (or the subsampled height) rows of `stride` bytes.
++    pub(crate) unsafe fn from_host(p: &SiglusHostPicture) -> Option<Self> {
++        let width = p.width as usize;
++        let height = p.height as usize;
++        if width == 0 || height == 0 || p.chroma_shift_x > 2 || p.chroma_shift_y > 2 {
++            return None;
++        }
++        let ch = (height + (1 << p.chroma_shift_y) - 1) >> p.chroma_shift_y;
++        let cw = (width + (1 << p.chroma_shift_x) - 1) >> p.chroma_shift_x;
++        let rows = [height, ch, ch];
++        let widths = [width, cw, cw];
++        let mut planes: [&[u8]; 3] = [&[], &[], &[]];
++        let mut strides = [0usize; 3];
++        for i in 0..3 {
++            let stride = p.strides[i] as usize;
++            if p.planes[i].is_null() || stride < widths[i] {
++                return None;
++            }
++            let len = stride * (rows[i] - 1) + widths[i];
++            planes[i] = unsafe { std::slice::from_raw_parts(p.planes[i], len) };
++            strides[i] = stride;
++        }
++        Some(Self {
++            width,
++            height,
++            chroma_shift: (p.chroma_shift_x, p.chroma_shift_y),
++            planes,
++            strides,
++            pts: (p.pts != SIGLUS_HOST_NO_PTS).then_some(p.pts),
++            key_frame: p.key_frame != 0,
++        })
++    }
++
++    pub fn chroma_size(&self) -> (usize, usize) {
++        let (sx, sy) = self.chroma_shift;
++        ((self.width + (1 << sx) - 1) >> sx, (self.height + (1 << sy) - 1) >> sy)
++    }
++
++    /// Plane `i` copied into a tightly packed buffer.
++    pub fn packed_plane(&self, i: usize) -> Vec<u8> {
++        let (w, h) = if i == 0 { (self.width, self.height) } else { self.chroma_size() };
++        let mut out = Vec::with_capacity(w * h);
++        for row in 0..h {
++            let start = row * self.strides[i];
++            out.extend_from_slice(&self.planes[i][start..start + w]);
++        }
++        out
++    }
++}
+diff --git a/crates/shiori_host_media/src/mpeg.rs b/crates/shiori_host_media/src/mpeg.rs
+new file mode 100644
+index 0000000..3d9468d
+--- /dev/null
++++ b/crates/shiori_host_media/src/mpeg.rs
+@@ -0,0 +1,80 @@
++//! Shiori: an MPEG-1/2 video elementary stream decoded by the host.
++
++use std::ffi::c_void;
++use std::ptr::NonNull;
++
++use anyhow::{Result, anyhow, bail};
++
++use crate::{Picture, SIGLUS_HOST_NO_PTS, SiglusHostMedia, SiglusHostPicture, host};
++
++pub struct MpegVideoDecoder {
++    media: SiglusHostMedia,
++    handle: NonNull<c_void>,
++    picture: SiglusHostPicture,
++}
++
++// One thread at a time.
++unsafe impl Send for MpegVideoDecoder {}
++
++impl std::fmt::Debug for MpegVideoDecoder {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("MpegVideoDecoder").finish_non_exhaustive()
++    }
++}
++
++impl MpegVideoDecoder {
++    pub fn new() -> Result<Self> {
++        let media = host()?;
++        let (Some(open), Some(_), Some(_), Some(_)) =
++            (media.mpeg_video_open, media.mpeg_video_send, media.mpeg_video_receive, media.mpeg_video_close)
++        else {
++            bail!("the host has no MPEG video decoder");
++        };
++        let handle = NonNull::new(unsafe { open() }).ok_or_else(|| anyhow!("the host's MPEG video decoder didn't open"))?;
++        Ok(Self { media, handle, picture: unsafe { std::mem::zeroed() } })
++    }
++
++    /// Feeds elementary-stream bytes; `pts_90k` belongs to the first picture that starts in them.
++    pub fn send(&mut self, data: &[u8], pts_90k: Option<i64>) -> Result<()> {
++        if data.is_empty() {
++            return Ok(());
++        }
++        let send = self.media.mpeg_video_send.expect("checked at open");
++        let code = unsafe {
++            send(self.handle.as_ptr(), data.as_ptr(), data.len(), pts_90k.unwrap_or(SIGLUS_HOST_NO_PTS))
++        };
++        if code < 0 {
++            bail!("MPEG video decoding failed ({code})");
++        }
++        Ok(())
++    }
++
++    /// The end of the stream: the pictures still held come out of `receive`.
++    pub fn drain(&mut self) -> Result<()> {
++        let send = self.media.mpeg_video_send.expect("checked at open");
++        let code = unsafe { send(self.handle.as_ptr(), std::ptr::null(), 0, SIGLUS_HOST_NO_PTS) };
++        if code < 0 {
++            bail!("MPEG video decoding failed ({code})");
++        }
++        Ok(())
++    }
++
++    /// The next decoded picture, valid until the next call.
++    pub fn receive(&mut self) -> Result<Option<Picture<'_>>> {
++        let receive = self.media.mpeg_video_receive.expect("checked at open");
++        if unsafe { receive(self.handle.as_ptr(), &mut self.picture) } != 1 {
++            return Ok(None);
++        }
++        unsafe { Picture::from_host(&self.picture) }
++            .map(Some)
++            .ok_or_else(|| anyhow!("malformed picture from the host"))
++    }
++}
++
++impl Drop for MpegVideoDecoder {
++    fn drop(&mut self) {
++        if let Some(close) = self.media.mpeg_video_close {
++            unsafe { close(self.handle.as_ptr()) };
++        }
++    }
++}
+diff --git a/crates/shiori_host_media/src/wmv.rs b/crates/shiori_host_media/src/wmv.rs
+new file mode 100644
+index 0000000..70c6020
+--- /dev/null
++++ b/crates/shiori_host_media/src/wmv.rs
+@@ -0,0 +1,295 @@
++//! Shiori: ASF movies (WMV video, WMA sound) decoded by the host, with the interface of the
++//! `wmv_decoder` crate (`na_wmv_player`) that Shiori builds without.
++
++use std::ffi::c_void;
++use std::io::{Read, Seek};
++use std::ptr::NonNull;
++
++use anyhow::{Result, anyhow, bail};
++
++use crate::{
++    Picture, SIGLUS_HOST_NO_PTS, SiglusHostIO, SiglusHostMedia, SiglusHostMovieInfo, SiglusHostPicture,
++    SiglusHostSound, host, io_read, io_seek,
++};
++
++const WANT_VIDEO: i32 = 1;
++const WANT_AUDIO: i32 = 2;
++
++/// One open movie: the host's handle, the reader it reads through and the callbacks it holds.
++struct AsfMovie<R> {
++    media: SiglusHostMedia,
++    handle: NonNull<c_void>,
++    info: SiglusHostMovieInfo,
++    _io: Box<SiglusHostIO>,
++    _reader: Box<R>,
++}
++
++// The handle and the reader are used by one thread at a time.
++unsafe impl<R: Send> Send for AsfMovie<R> {}
++
++impl<R: Read + Seek> AsfMovie<R> {
++    fn open(reader: R, want: i32) -> Result<Self> {
++        let media = host()?;
++        let (Some(open), Some(_), Some(_), Some(_)) =
++            (media.asf_open, media.asf_next_picture, media.asf_next_sound, media.asf_close)
++        else {
++            bail!("the host has no ASF movie decoder");
++        };
++        let mut reader = Box::new(reader);
++        let io = Box::new(SiglusHostIO {
++            opaque: (&mut *reader as *mut R).cast(),
++            read: io_read::<R>,
++            seek: io_seek::<R>,
++        });
++        let mut info = SiglusHostMovieInfo { duration_ms: -1, ..Default::default() };
++        let handle = unsafe { open(&*io, want, &mut info) };
++        let handle = NonNull::new(handle).ok_or_else(|| anyhow!("the host can't read this ASF movie"))?;
++        Ok(Self { media, handle, info, _io: io, _reader: reader })
++    }
++
++    fn duration_ms(&self) -> Option<u64> {
++        (self.info.duration_ms > 0).then_some(self.info.duration_ms as u64)
++    }
++}
++
++impl<R> Drop for AsfMovie<R> {
++    fn drop(&mut self) {
++        if let Some(close) = self.media.asf_close {
++            unsafe { close(self.handle.as_ptr()) };
++        }
++    }
++}
++
++#[derive(Clone, Debug)]
++pub struct VideoStreamInfo {
++    pub width: u32,
++    pub height: u32,
++}
++
++/// A 4:2:0 picture, tightly packed; the chroma planes are `(width + 1) / 2` wide.
++#[derive(Clone, Debug)]
++pub struct YuvFrame {
++    pub width: u32,
++    pub height: u32,
++    pub y: Vec<u8>,
++    pub cb: Vec<u8>,
++    pub cr: Vec<u8>,
++}
++
++impl YuvFrame {
++    fn from_picture(p: &Picture<'_>) -> Self {
++        let y = p.packed_plane(0);
++        let (cw, ch) = ((p.width + 1) / 2, (p.height + 1) / 2);
++        let (cb, cr) = if p.chroma_shift == (1, 1) {
++            (p.packed_plane(1), p.packed_plane(2))
++        } else {
++            // Not 4:2:0 (WMV never is): take the sample at each 4:2:0 position.
++            let (sx, sy) = p.chroma_shift;
++            let sample = |i: usize| {
++                let mut out = Vec::with_capacity(cw * ch);
++                for row in 0..ch {
++                    let src_row = ((row * 2) >> sy) * p.strides[i];
++                    for col in 0..cw {
++                        out.push(p.planes[i][src_row + ((col * 2) >> sx)]);
++                    }
++                }
++                out
++            };
++            (sample(1), sample(2))
++        };
++        Self { width: p.width as u32, height: p.height as u32, y, cb, cr }
++    }
++}
++
++pub struct DecodedFrame {
++    pub pts_ms: u32,
++    pub is_key_frame: bool,
++    pub frame: YuvFrame,
++}
++
++pub struct PcmFrameF32 {
++    pub pts_ms: u32,
++    pub sample_rate: u32,
++    pub channels: u16,
++    /// Interleaved samples.
++    pub samples: Vec<f32>,
++}
++
++pub struct DecodedAudioFrame {
++    pub pts_ms: u32,
++    pub frame: PcmFrameF32,
++}
++
++/// An ASF movie's video (WMV 1/2/3 or VC-1).
++pub struct AsfWmv2Decoder<R> {
++    movie: AsfMovie<R>,
++    video: VideoStreamInfo,
++    last_pts_ms: u32,
++}
++
++impl<R: Read + Seek> AsfWmv2Decoder<R> {
++    pub fn open(reader: R) -> Result<Self> {
++        let movie = AsfMovie::open(reader, WANT_VIDEO)?;
++        match movie.info.has_video {
++            1 => {}
++            0 => bail!("no video stream in this ASF file"),
++            _ => bail!("unsupported ASF video stream"),
++        }
++        let video = VideoStreamInfo { width: movie.info.width, height: movie.info.height };
++        Ok(Self { movie, video, last_pts_ms: 0 })
++    }
++
++    pub fn video_stream_info(&self) -> &VideoStreamInfo {
++        &self.video
++    }
++
++    pub fn duration_ms(&self) -> Option<u64> {
++        self.movie.duration_ms()
++    }
++
++    /// The next picture in presentation order; `None` at the end.
++    pub fn next_frame(&mut self) -> Result<Option<DecodedFrame>> {
++        let next = self.movie.media.asf_next_picture.expect("checked at open");
++        let mut out: SiglusHostPicture = unsafe { std::mem::zeroed() };
++        match unsafe { next(self.movie.handle.as_ptr(), &mut out) } {
++            1 => {}
++            0 => return Ok(None),
++            code => bail!("WMV decoding failed ({code})"),
++        }
++        let picture = unsafe { Picture::from_host(&out) }.ok_or_else(|| anyhow!("malformed picture from the host"))?;
++        let pts_ms = match picture.pts {
++            Some(pts) => pts.clamp(0, u32::MAX as i64) as u32,
++            None => self.last_pts_ms,
++        };
++        self.last_pts_ms = pts_ms;
++        Ok(Some(DecodedFrame { pts_ms, is_key_frame: picture.key_frame, frame: YuvFrame::from_picture(&picture) }))
++    }
++}
++
++/// An ASF movie's sound (WMA 1/2, Pro or Lossless).
++pub struct AsfWmaDecoder<R> {
++    movie: AsfMovie<R>,
++    next_pts_ms: Option<f64>,
++}
++
++impl<R: Read + Seek> AsfWmaDecoder<R> {
++    pub fn open(reader: R) -> Result<Self> {
++        Self::open_optional(reader)?.ok_or_else(|| anyhow!("no audio stream in this ASF file"))
++    }
++
++    /// `None` when the movie has no sound; an error when its sound can't be decoded.
++    pub fn open_optional(reader: R) -> Result<Option<Self>> {
++        let movie = AsfMovie::open(reader, WANT_AUDIO)?;
++        match movie.info.has_audio {
++            1 if movie.info.sample_rate > 0 && movie.info.channels > 0 => {}
++            0 => return Ok(None),
++            _ => bail!("unsupported ASF audio stream"),
++        }
++        Ok(Some(Self { movie, next_pts_ms: None }))
++    }
++
++    pub fn sample_rate(&self) -> u32 {
++        self.movie.info.sample_rate
++    }
++
++    pub fn channels(&self) -> u16 {
++        self.movie.info.channels.min(u16::MAX as u32) as u16
++    }
++
++    pub fn duration_ms(&self) -> Option<u64> {
++        self.movie.duration_ms()
++    }
++
++    /// The next piece of sound; `None` at the end.
++    pub fn next_frame(&mut self) -> Result<Option<DecodedAudioFrame>> {
++        let next = self.movie.media.asf_next_sound.expect("checked at open");
++        loop {
++            let mut out: SiglusHostSound = unsafe { std::mem::zeroed() };
++            match unsafe { next(self.movie.handle.as_ptr(), &mut out) } {
++                1 => {}
++                0 => return Ok(None),
++                code => bail!("WMA decoding failed ({code})"),
++            }
++            if out.frames == 0 || out.channels == 0 || out.samples.is_null() {
++                continue;
++            }
++            let count = out.frames as usize * out.channels as usize;
++            let samples = unsafe { std::slice::from_raw_parts(out.samples, count) }.to_vec();
++            // Pieces after the first of a packet may carry no time: they follow on.
++            let pts_ms = if out.pts_ms != SIGLUS_HOST_NO_PTS {
++                out.pts_ms.max(0) as f64
++            } else {
++                self.next_pts_ms.unwrap_or(0.0)
++            };
++            let rate = out.sample_rate.max(1);
++            self.next_pts_ms = Some(pts_ms + out.frames as f64 * 1000.0 / rate as f64);
++            let pts_ms = pts_ms.round().min(u32::MAX as f64) as u32;
++            return Ok(Some(DecodedAudioFrame {
++                pts_ms,
++                frame: PcmFrameF32 {
++                    pts_ms,
++                    sample_rate: out.sample_rate,
++                    channels: out.channels.min(u16::MAX as u32) as u16,
++                    samples,
++                },
++            }));
++        }
++    }
++}
++
++/// Studio-range Y'CbCr to RGB coefficients (×256): BT.601 for standard definition (576 lines
++/// or fewer) and BT.709 above, as Windows assumes for WMV, which carries no matrix.
++fn coefficients(height: u32) -> (i32, i32, i32, i32) {
++    if height > 576 { (459, 55, 136, 541) } else { (409, 100, 208, 516) }
++}
++
++/// RGBA at `output_width`×`output_height` (nearest sample when it differs from the picture).
++pub fn yuv420p_to_rgba_scaled(frame: &YuvFrame, output_width: u32, output_height: u32) -> Vec<u8> {
++    let (w, h) = (frame.width as usize, frame.height as usize);
++    let (ow, oh) = (output_width as usize, output_height as usize);
++    let mut rgba = vec![0u8; ow * oh * 4];
++    if w == 0 || h == 0 || ow == 0 || oh == 0 {
++        return rgba;
++    }
++    let cw = (w + 1) / 2;
++    let (rv, gu, gv, bu) = coefficients(frame.height);
++    let same = ow == w && oh == h;
++    for out_y in 0..oh {
++        let y = if same { out_y } else { out_y * h / oh };
++        let luma = &frame.y[y * w..y * w + w];
++        let crow = (y / 2) * cw;
++        let cb = &frame.cb[crow..crow + cw];
++        let cr = &frame.cr[crow..crow + cw];
++        let out = &mut rgba[out_y * ow * 4..(out_y + 1) * ow * 4];
++        for (out_x, px) in out.chunks_exact_mut(4).enumerate() {
++            let x = if same { out_x } else { out_x * w / ow };
++            let c = 298 * (luma[x] as i32 - 16).max(0) + 128;
++            let d = cb[x / 2] as i32 - 128;
++            let e = cr[x / 2] as i32 - 128;
++            px[0] = ((c + rv * e) >> 8).clamp(0, 255) as u8;
++            px[1] = ((c - gu * d - gv * e) >> 8).clamp(0, 255) as u8;
++            px[2] = ((c + bu * d) >> 8).clamp(0, 255) as u8;
++            px[3] = 255;
++        }
++    }
++    rgba
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn black_and_white() {
++        let frame = YuvFrame { width: 2, height: 2, y: vec![16, 235, 16, 235], cb: vec![128], cr: vec![128] };
++        let rgba = yuv420p_to_rgba_scaled(&frame, 2, 2);
++        assert_eq!(&rgba[0..4], &[0, 0, 0, 255]);
++        assert_eq!(&rgba[4..8], &[255, 255, 255, 255]);
++    }
++
++    #[test]
++    fn odd_width_has_a_chroma_column_for_the_last_pixel() {
++        let frame = YuvFrame { width: 3, height: 1, y: vec![16; 3], cb: vec![128; 2], cr: vec![128; 2] };
++        assert_eq!(yuv420p_to_rgba_scaled(&frame, 3, 1).len(), 12);
++    }
++}
+diff --git a/crates/siglus_scene_vm/Cargo.toml b/crates/siglus_scene_vm/Cargo.toml
+index 24af58e..108a5b2 100644
+--- a/crates/siglus_scene_vm/Cargo.toml
++++ b/crates/siglus_scene_vm/Cargo.toml
+@@ -28,7 +28,9 @@ encoding_rs = "0.8"
+ eluna = { package = "eluna_rs", version = "0.1.0", path = "../../vendor/eluna_rs" }
+ siglus_omv_decoder = { path = "../siglus_omv_decoder" }
+ na_mpeg2_decoder = { path = "../na_mpeg2_decoder" }
+-wmv_decoder = { package = "wmv-decoder", path = "../na_wmv_player" }
++# Shiori: WMV/WMA movies are decoded by the host app (shiori_host_media), not by
++# na_wmv_player (a translation of FFmpeg's decoders, not built).
++shiori_host_media = { path = "../shiori_host_media" }
+ siglus_key_recovery = { path = "../siglus_key_recovery" }
+ 
+ siglus_assets = { path = "../siglus_assets" }
+@@ -44,6 +46,10 @@ path = "src/bin/mesh_asset_tool.rs"
+ 
+ [target.'cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))'.dependencies]
+ serde_json = "1"
++# Shiori: egui draws only the desktop dialogs (desktop_*.rs), so it (and its bundled fonts)
++# is not built for iOS.
++egui = "0.28.1"
++egui-wgpu = "0.28.1"
+ 
+ [target.'cfg(not(any(target_os = "horizon", target_os = "vita")))'.dependencies]
+ kira.workspace = true
+@@ -51,10 +57,9 @@ wgpu.workspace = true
+ winit.workspace = true
+ pollster.workspace = true
+ raw-window-handle = "0.6"
+-egui = "0.28.1"
+-egui-wgpu = "0.28.1"
+ 
+-[target.'cfg(all(not(any(target_os = "horizon", target_os = "vita")), not(all(target_arch = "wasm32", target_os = "unknown"))))'.dependencies]
++# Shiori: no HTTP client on iOS; the game's network commands report it unavailable (net.rs).
++[target.'cfg(all(not(any(target_os = "horizon", target_os = "vita", target_os = "ios")), not(all(target_arch = "wasm32", target_os = "unknown"))))'.dependencies]
+ ureq = "2.10"
+ 
+ [target.'cfg(target_os = "horizon")'.dependencies]
+diff --git a/crates/siglus_scene_vm/src/movie/mod.rs b/crates/siglus_scene_vm/src/movie/mod.rs
+index a7e1a9f..5123253 100644
+--- a/crates/siglus_scene_vm/src/movie/mod.rs
++++ b/crates/siglus_scene_vm/src/movie/mod.rs
+@@ -22,6 +22,8 @@ use kira::sound::streaming::{
+ 
+ use crate::assets::RgbaImage;
+ use crate::audio::{AudioHub, TrackKind};
++// Shiori: WMV/WMA decoded by the host app, with the interface of the wmv_decoder crate.
++use shiori_host_media::wmv as wmv_decoder;
+ 
+ const MPEG2_HEADER_PROBE_BYTES: usize = 256 * 1024;
+ const MPEG2_STREAM_CHUNK_BYTES: usize = 256 * 1024;
+@@ -4436,28 +4438,10 @@ fn decode_omv_preview_frame(path: &Path) -> Result<Arc<RgbaImage>> {
+ }
+ 
+ fn open_wmv_wma_decoder<R: Read + Seek>(
+-    mut reader: R,
++    reader: R,
+ ) -> Result<Option<wmv_decoder::AsfWmaDecoder<R>>> {
+-    let asf = wmv_decoder::asf::AsfFile::open(&mut reader).context("probe ASF audio streams")?;
+-    if asf.audio_streams.is_empty() {
+-        return Ok(None);
+-    }
+-    if !asf
+-        .audio_streams
+-        .iter()
+-        .any(|stream| matches!(stream.format_tag, 0x0160..=0x0162))
+-    {
+-        let tags = asf
+-            .audio_streams
+-            .iter()
+-            .map(|stream| format!("{:#06x}", stream.format_tag))
+-            .collect::<Vec<_>>()
+-            .join(", ");
+-        bail!("unsupported ASF/WMA audio format tag(s): {tags}");
+-    }
+-    reader.seek(SeekFrom::Start(0))?;
+-    let decoder = wmv_decoder::AsfWmaDecoder::open(reader).context("open ASF/WMA decoder")?;
+-    Ok(Some(decoder))
++    // Shiori: the host says whether there is sound and whether it can decode it.
++    wmv_decoder::AsfWmaDecoder::open_optional(reader).context("open ASF/WMA decoder")
+ }
+ 
+ fn decode_wmv_audio_full_from_reader<R: Read + Seek>(
+diff --git a/crates/siglus_scene_vm/src/runtime/net.rs b/crates/siglus_scene_vm/src/runtime/net.rs
+index 9f4082f..c2129d8 100644
+--- a/crates/siglus_scene_vm/src/runtime/net.rs
++++ b/crates/siglus_scene_vm/src/runtime/net.rs
+@@ -86,7 +86,8 @@ impl TnmNet {
+         #[cfg(any(
+             all(target_arch = "wasm32", target_os = "unknown"),
+             target_os = "horizon",
+-            target_os = "vita"
++            target_os = "vita",
++            target_os = "ios"
+         ))]
+         {
+             let msg = "network GET is unavailable on this platform";
+@@ -98,7 +99,8 @@ impl TnmNet {
+         #[cfg(not(any(
+             all(target_arch = "wasm32", target_os = "unknown"),
+             target_os = "horizon",
+-            target_os = "vita"
++            target_os = "vita",
++            target_os = "ios"
+         )))]
+         {
+             let response = ureq::get(url)
+@@ -119,7 +121,8 @@ impl TnmNet {
+         #[cfg(any(
+             all(target_arch = "wasm32", target_os = "unknown"),
+             target_os = "horizon",
+-            target_os = "vita"
++            target_os = "vita",
++            target_os = "ios"
+         ))]
+         {
+             let msg = "network POST is unavailable on this platform";
+@@ -132,7 +135,8 @@ impl TnmNet {
+         #[cfg(not(any(
+             all(target_arch = "wasm32", target_os = "unknown"),
+             target_os = "horizon",
+-            target_os = "vita"
++            target_os = "vita",
++            target_os = "ios"
+         )))]
+         {
+             let response = ureq::post(url)
+diff --git a/platform/ios/SiglusLauncher/Headers/siglus.h b/platform/ios/SiglusLauncher/Headers/siglus.h
+index c92ff41..916ac84 100644
+--- a/platform/ios/SiglusLauncher/Headers/siglus.h
++++ b/platform/ios/SiglusLauncher/Headers/siglus.h
+@@ -1,6 +1,7 @@
+ #ifndef SIGLUS_H
+ #define SIGLUS_H
+ 
++#include <stddef.h>
+ #include <stdint.h>
+ #if defined(__APPLE__)
+ #include <TargetConditionals.h>
+@@ -22,6 +23,59 @@ char *siglus_game_name_from_dir(const char *game_root_utf8);
+ char *siglus_game_cover_path_from_dir(const char *game_root_utf8);
+ char *siglus_game_cover_mime_from_dir(const char *game_root_utf8);
+ 
++/* Shiori: movies the host decodes. Windows Media movies (ASF: WMV 7/8/9 or VC-1 video, WMA
++   1/2, Pro or Lossless sound) and MPEG-1/2 video are decoded by the host app (Shiori: its
++   LGPL FFmpeg), not by the engine. Register once, before creating a game; without them those
++   movies don't open and the game goes on past them. */
++#define SIGLUS_HOST_NO_PTS INT64_MIN
++typedef struct SiglusHostPicture {
++    uint32_t width, height;
++    const uint8_t *planes[3];        /* Y, Cb, Cr, 8-bit */
++    uint32_t strides[3];             /* bytes per row */
++    uint32_t chroma_shift_x, chroma_shift_y; /* 1, 1 for 4:2:0 */
++    int64_t pts;                     /* ms (ASF) or 90 kHz (MPEG); SIGLUS_HOST_NO_PTS */
++    int32_t key_frame;
++} SiglusHostPicture;
++typedef struct SiglusHostSound {
++    const float *samples;            /* interleaved */
++    uint32_t frames, channels, sample_rate;
++    int64_t pts_ms;                  /* or SIGLUS_HOST_NO_PTS */
++} SiglusHostSound;
++/* has_video, has_audio: 1 a stream the host decodes, 0 none, -1 one it can't decode. */
++typedef struct SiglusHostMovieInfo {
++    uint32_t width, height;
++    int64_t duration_ms;             /* -1 unknown */
++    int32_t has_video, has_audio;
++    uint32_t sample_rate, channels;
++} SiglusHostMovieInfo;
++/* The movie file, read through the engine: read returns the bytes read (0 at the end,
++   negative on error); seek takes SEEK_SET/CUR/END or 0x10000 (the size) and returns the new
++   position, negative on error. */
++typedef struct SiglusHostIO {
++    void *opaque;
++    int32_t (*read)(void *opaque, uint8_t *buf, int32_t len);
++    int64_t (*seek)(void *opaque, int64_t offset, int32_t whence);
++} SiglusHostIO;
++/* Pictures and sound stay valid until the next call on the same handle. Each handle is
++   used by one thread at a time. */
++typedef struct SiglusHostMedia {
++    uint32_t version;                /* 1 */
++    /* want: 1 video, 2 sound. io stays valid until asf_close. NULL if unreadable. */
++    void *(*asf_open)(const SiglusHostIO *io, int32_t want, SiglusHostMovieInfo *info);
++    int32_t (*asf_next_picture)(void *movie, SiglusHostPicture *out); /* 1, 0 end, <0 error */
++    int32_t (*asf_next_sound)(void *movie, SiglusHostSound *out);     /* 1, 0 end, <0 error */
++    void (*asf_close)(void *movie);
++    /* MPEG-1/2 video elementary stream, fed in arbitrary pieces; pts_90k is the first
++       picture starting in them. NULL data drains at the end. send: 0, <0 fatal error.
++       receive: 1 a picture (presentation order), 0 needs more data. */
++    void *(*mpeg_video_open)(void);
++    int32_t (*mpeg_video_send)(void *decoder, const uint8_t *data, size_t len, int64_t pts_90k);
++    int32_t (*mpeg_video_receive)(void *decoder, SiglusHostPicture *out);
++    void (*mpeg_video_close)(void *decoder);
++} SiglusHostMedia;
++/* Copies media; NULL removes it. */
++void siglus_set_host_media(const SiglusHostMedia *media);
++
+ #if defined(__APPLE__) && TARGET_OS_IPHONE
+ void *siglus_ios_create(
+     void *ui_view,
