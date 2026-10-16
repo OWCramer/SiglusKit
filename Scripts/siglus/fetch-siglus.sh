@@ -4,7 +4,7 @@
 # https://mozilla.org/MPL/2.0/.
 #
 # Fetches siglus_rs, the SiglusEngine reimplementation Shiori embeds (MPL-2.0), into
-# Vendor/siglus_rs. See spec.md, "Siglus engine". Vendor/ is gitignored. Safe to re-run: an
+# Vendor/siglus_rs.  Vendor/ is gitignored. Safe to re-run: an
 # existing checkout at the pinned commit is left alone.
 set -eu
 cd "$(dirname "$0")/../.."
