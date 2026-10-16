@@ -59,7 +59,7 @@ done
   echo "// https://mozilla.org/MPL/2.0/."
   echo ""
   cat "$SRC/platform/ios/SiglusLauncher/Headers/siglus.h"
-} > "$ROOT/Packages/SiglusKit/Sources/CSiglus/include/siglus.h"
+} > "$ROOT/Sources/CSiglus/include/siglus.h"
 
 echo "==> $OUT"
 # shellcheck disable=SC2086
