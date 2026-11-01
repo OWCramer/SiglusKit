@@ -23,7 +23,7 @@ mkdir -p "$WORK"
 args=""
 for target in aarch64-apple-ios aarch64-apple-ios-sim; do
   echo "==> cargo build ($target)"
-  (cd "$SRC" && cargo build --release -p game_launcher --target "$target")
+  (cd "$SRC" && cargo build --locked --release -p game_launcher --target "$target")
   case $target in
     *-sim) platform=iPhoneSimulator ;;
     *) platform=iPhoneOS ;;

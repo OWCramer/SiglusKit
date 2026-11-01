@@ -12,7 +12,7 @@ cd "$(dirname "$0")/../.."
 SIGLUS_COMMIT=5f358ef1360b0439e92aed2b749e8f25d8721954
 DEST=Vendor/siglus_rs
 STAMP="$DEST/.shiori-version"
-VERSION="$SIGLUS_COMMIT $(cat Scripts/siglus/patches/*.patch Scripts/siglus/kira-*.patch | shasum -a 256 | cut -c1-16)"
+VERSION="$SIGLUS_COMMIT $(cat Scripts/siglus/patches/*.patch Scripts/siglus/kira-*.patch Scripts/siglus/Cargo.lock | shasum -a 256 | cut -c1-16)"
 # kira, the audio library, from crates.io (the version and checksum siglus_rs's Cargo.lock
 # pins), patched for 0012.
 KIRA_VERSION=0.9.6
@@ -78,6 +78,12 @@ rm -rf "$DEST/crates/na_wmv_player"
 for f in bitreader decoder idct motion startcode tables utils videodsp vlc vlctables; do
   rm -f "$DEST/crates/na_mpeg2_decoder/src/video/$f.rs"
 done
+# The lockfile for the patched workspace (every crate's version and checksum), so the build
+# (cargo build --locked) resolves exactly what was reviewed. After changing a patch or the
+# pinned commit, regenerate it: run this script, `cargo metadata` in $DEST, copy its
+# Cargo.lock back to Scripts/siglus/Cargo.lock.
+cp Scripts/siglus/Cargo.lock "$DEST/Cargo.lock"
+(cd "$DEST" && cargo metadata --locked --format-version 1 > /dev/null)
 
 echo "$VERSION" > "$STAMP"
 echo "siglus_rs ready in $DEST"
